@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel de Administración — Boda Starlin & Reneisy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+<style>
+:root {
+  --ivory:      #F8F5F0;
+  --ivory-dark: #EDE8DF;
+  --green:      #5A7A5C;
+  --green-l:    #8AAD8C;
+  --green-pale: #D6E5D4;
+  --gold:       #C9A84C;
+  --red:        #C0504A;
+  --red-pale:   #F8ECEB;
+  --text:       #261A14;
+  --text-soft:  #5C4A3A;
+  --white:      #FFFFFF;
+  --shadow:     0 4px 24px rgba(38,26,20,.09);
+  --shadow-lg:  0 12px 48px rgba(38,26,20,.14);
+  --radius:     14px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Poppins', sans-serif;
+  background: var(--ivory);
+  color: var(--text);
+  min-height: 100vh;
+}
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-thumb { background: var(--green-l); border-radius: 2px; }
+
+/* ─── LOGIN ─── */
+#login-screen {
+  position: fixed; inset: 0; z-index: 9999;
+  background: var(--ivory);
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity .5s ease;
+}
+#login-screen.hide { opacity: 0; pointer-events: none; }
+.login-box {
+  background: var(--white);
+  border-radius: 24px;
+  padding: 3rem 2.5rem;
+  width: min(400px, 90vw);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid rgba(90,122,92,.12);
+  text-align: center;
+  position: relative; overflow: hidden;
+}
+.login-box::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--green), var(--gold), var(--green));
+}
+.login-logo {
+  width: 56px; height: 56px;
+  background: var(--green-pale);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 1.5rem;
+}
+.login-logo svg { width: 26px; height: 26px; fill: var(--green); }
+.login-box h1 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.7rem; font-weight: 400;
+  margin-bottom: .3rem;
+}
+.login-box p { font-size: .75rem; color: var(--text-soft); margin-bottom: 2rem; }
+.login-box input {
+  width: 100%; padding: .9rem 1.1rem;
+  background: var(--ivory);
+  border: 1.5px solid rgba(90,122,92,.2);
+  border-radius: 12px;
+  font-family: 'Poppins', sans-serif;
+  font-size: .88rem; color: var(--text);
+  outline: none; margin-bottom: 1rem;
+  transition: border-color .25s;
+}
+.login-box input:focus { border-color: var(--green); }
+.login-btn {
+  width: 100%; padding: .95rem;
+  background: linear-gradient(135deg, var(--green), #3D5E3F);
+  color: var(--white);
+  font-family: 'Poppins', sans-serif;
+  font-size: .78rem; font-weight: 500; letter-spacing: .14em; text-transform: uppercase;
+  border-radius: 12px; border: none; cursor: pointer;
+  box-shadow: 0 6px 20px rgba(90,122,92,.3);
+  transition: transform .25s, box-shadow .25s;
+}
+.login-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(90,122,92,.4); }
+.login-error {
+  font-size: .74rem; color: var(--red);
+  margin-top: .8rem; display: none;
+}
+.login-error.show { display: block; }
+
+/* ─── TOPBAR ─── */
+.topbar {
+  background: var(--white);
+  border-bottom: 1px solid rgba(90,122,92,.12);
+  padding: 1rem 2rem;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1rem; flex-wrap: wrap;
+  position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 2px 16px rgba(38,26,20,.06);
+}
+.topbar-brand {
+  display: flex; align-items: center; gap: .8rem;
+}
+.topbar-logo {
+  width: 38px; height: 38px;
+  background: var(--green-pale); border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+}
+.topbar-logo svg { width: 18px; height: 18px; fill: var(--green); }
+.topbar-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.2rem; font-weight: 400;
+}
+.topbar-subtitle { font-size: .65rem; color: var(--text-soft); margin-top: .1rem; }
+.topbar-actions { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; }
+.btn-sm {
+  display: inline-flex; align-items: center; gap: .4rem;
+  padding: .5rem 1.1rem;
+  border-radius: 50px; font-size: .7rem; font-weight: 500;
+  letter-spacing: .08em; text-transform: uppercase;
+  cursor: pointer; border: none; transition: transform .2s, box-shadow .2s;
+  font-family: 'Poppins', sans-serif;
+}
+.btn-green {
+  background: linear-gradient(135deg, var(--green), #3D5E3F);
+  color: var(--white);
+  box-shadow: 0 4px 14px rgba(90,122,92,.28);
+}
+.btn-green:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(90,122,92,.38); }
+.btn-outline {
+  background: var(--white); color: var(--text);
+  border: 1.5px solid rgba(90,122,92,.22);
+  box-shadow: var(--shadow);
+}
+.btn-outline:hover { border-color: var(--green); color: var(--green); }
+.btn-sm svg { width: 14px; height: 14px; fill: currentColor; }
+
+/* ─── MAIN ─── */
+.main { padding: 2rem; max-width: 1100px; margin: 0 auto; }
+
+/* ─── STATS ─── */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem; margin-bottom: 2rem;
+}
+.stat-card {
+  background: var(--white); border-radius: 16px;
+  padding: 1.4rem 1.5rem;
+  box-shadow: var(--shadow);
+  border: 1px solid rgba(90,122,92,.1);
+  transition: transform .25s;
+}
+.stat-card:hover { transform: translateY(-3px); }
+.stat-label {
+  font-size: .6rem; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--text-soft); margin-bottom: .5rem;
+}
+.stat-value {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 2.4rem; font-weight: 600;
+  line-height: 1;
+}
+.stat-card.green  .stat-value { color: var(--green); }
+.stat-card.gold   .stat-value { color: var(--gold); }
+.stat-card.red    .stat-value { color: var(--red); }
+.stat-card.dark   .stat-value { color: var(--text); }
+.stat-sub { font-size: .7rem; color: var(--text-soft); margin-top: .3rem; }
+
+/* ─── CAPACITY BAR ─── */
+.capacity-bar-wrap {
+  background: var(--white); border-radius: 16px;
+  padding: 1.4rem 1.8rem;
+  box-shadow: var(--shadow);
+  border: 1px solid rgba(90,122,92,.1);
+  margin-bottom: 2rem;
+}
+.cap-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: .8rem; }
+.cap-title { font-size: .72rem; font-weight: 500; color: var(--text); }
+.cap-pct { font-family: 'Cormorant Garamond', serif; font-size: 1.3rem; color: var(--green); font-weight: 600; }
+.cap-bar {
+  height: 8px; border-radius: 8px;
+  background: var(--green-pale); overflow: hidden;
+}
+.cap-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--green), var(--gold));
+  border-radius: 8px;
+  transition: width .6s ease;
+}
+
+/* ─── FILTERS ─── */
+.filters {
+  display: flex; align-items: center; flex-wrap: wrap; gap: .7rem;
+  margin-bottom: 1.5rem;
+}
+.filter-btn {
+  padding: .5rem 1.2rem;
+  border-radius: 50px;
+  font-family: 'Poppins', sans-serif;
+  font-size: .7rem; font-weight: 500; cursor: pointer;
+  border: 1.5px solid rgba(90,122,92,.2);
+  background: var(--white); color: var(--text-soft);
+  transition: all .2s;
+}
+.filter-btn.active, .filter-btn:hover {
+  background: var(--green); color: var(--white); border-color: var(--green);
+}
+.search-wrap { flex: 1; min-width: 200px; max-width: 320px; margin-left: auto; position: relative; }
+.search-wrap input {
+  width: 100%; padding: .5rem 1rem .5rem 2.2rem;
+  background: var(--white);
+  border: 1.5px solid rgba(90,122,92,.2);
+  border-radius: 50px;
+  font-family: 'Poppins', sans-serif;
+  font-size: .76rem; color: var(--text);
+  outline: none; transition: border-color .2s;
+}
+.search-wrap input:focus { border-color: var(--green); }
+.search-wrap svg {
+  position: absolute; left: .7rem; top: 50%; transform: translateY(-50%);
+  width: 14px; height: 14px; fill: var(--green-l); pointer-events: none;
+}
+
+/* ─── TABLE ─── */
+.table-card {
+  background: var(--white); border-radius: 18px;
+  box-shadow: var(--shadow);
+  border: 1px solid rgba(90,122,92,.1);
+  overflow: hidden;
+}
+.table-scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 640px; }
+thead tr { border-bottom: 1px solid rgba(90,122,92,.12); }
+thead th {
+  padding: 1rem 1.2rem;
+  text-align: left;
+  font-size: .6rem; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--text-soft); font-weight: 500; white-space: nowrap;
+}
+tbody tr {
+  border-bottom: 1px solid rgba(90,122,92,.07);
+  transition: background .2s;
+}
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: rgba(90,122,92,.04); }
+tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
+.td-name { font-weight: 500; color: var(--text); }
+.td-phone { color: var(--text-soft); font-size: .75rem; }
+.td-date { color: var(--text-soft); font-size: .72rem; white-space: nowrap; }
+
+/* ─── BADGE ─── */
+.badge {
+  display: inline-flex; align-items: center; gap: .3rem;
+  padding: .28rem .75rem; border-radius: 50px;
+  font-size: .65rem; font-weight: 500; white-space: nowrap;
+}
+.badge-yes { background: rgba(90,122,92,.12); color: var(--green); }
+.badge-no  { background: rgba(192,80,74,.10); color: var(--red); }
+.badge-dot { width: 6px; height: 6px; border-radius: 50%; }
+.badge-yes .badge-dot { background: var(--green); }
+.badge-no  .badge-dot { background: var(--red); }
+
+/* ─── DELETE BTN ─── */
+.del-btn {
+  padding: .38rem .85rem;
+  background: var(--red-pale);
+  color: var(--red);
+  border: 1px solid rgba(192,80,74,.2);
+  border-radius: 50px;
+  font-size: .65rem; font-weight: 500;
+  cursor: pointer; font-family: 'Poppins', sans-serif;
+  transition: background .2s, transform .2s;
+  display: inline-flex; align-items: center; gap: .3rem;
+}
+.del-btn:hover { background: var(--red); color: var(--white); transform: scale(1.05); }
+.del-btn svg { width: 12px; height: 12px; fill: currentColor; }
+
+/* ─── EMPTY ─── */
+.empty-state {
+  text-align: center; padding: 4rem 2rem;
+}
+.empty-state svg { width: 60px; height: 60px; fill: var(--green-pale); margin-bottom: 1rem; }
+.empty-state h3 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.5rem; color: var(--text);
+}
+.empty-state p { font-size: .8rem; color: var(--text-soft); margin-top: .4rem; }
+
+/* ─── TOAST ─── */
+#toast {
+  position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(80px);
+  background: var(--text); color: var(--white);
+  padding: .7rem 1.6rem; border-radius: 50px;
+  font-size: .76rem; white-space: nowrap;
+  box-shadow: 0 8px 28px rgba(0,0,0,.2);
+  transition: transform .3s ease;
+  z-index: 9000;
+}
+#toast.show { transform: translateX(-50%) translateY(0); }
+
+/* ─── CONFIRM DIALOG ─── */
+#confirm-dialog {
+  position: fixed; inset: 0; z-index: 8000;
+  background: rgba(38,26,20,.45);
+  backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity .25s;
+}
+#confirm-dialog.show { opacity: 1; pointer-events: all; }
+.dialog-box {
+  background: var(--white); border-radius: 20px;
+  padding: 2.5rem 2rem; width: min(360px, 88vw);
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+}
+.dialog-box h3 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.5rem; margin-bottom: .6rem;
+}
+.dialog-box p { font-size: .8rem; color: var(--text-soft); line-height: 1.6; }
+.dialog-actions { display: flex; gap: .8rem; margin-top: 1.8rem; }
+.dialog-cancel {
+  flex: 1; padding: .85rem;
+  background: var(--ivory); color: var(--text);
+  border: 1.5px solid rgba(90,122,92,.2);
+  border-radius: 12px; font-family: 'Poppins', sans-serif;
+  font-size: .78rem; cursor: pointer;
+  transition: background .2s;
+}
+.dialog-cancel:hover { background: var(--ivory-dark); }
+.dialog-confirm {
+  flex: 1; padding: .85rem;
+  background: var(--red); color: var(--white);
+  border: none; border-radius: 12px;
+  font-family: 'Poppins', sans-serif; font-size: .78rem;
+  cursor: pointer; font-weight: 500;
+  transition: opacity .2s;
+}
+.dialog-confirm:hover { opacity: .88; }
+
+/* ─── RESPONSIVE ─── */
+@media(max-width:640px){
+  .topbar { padding: .8rem 1rem; }
+  .main { padding: 1rem; }
+  .topbar-actions .btn-sm span { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN ══ -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+    </div>
+    <h1>Panel Privado</h1>
+    <p>Starlin &amp; Reneisy · Boda 2026</p>
+    <input type="password" id="pwd-input" placeholder="Contraseña de acceso" autocomplete="current-password" />
+    <button class="login-btn" id="login-btn">Acceder</button>
+    <p class="login-error" id="login-error">Contraseña incorrecta. Intenta de nuevo.</p>
+  </div>
+</div>
+
+<!-- ══ TOPBAR ══ -->
+<header class="topbar">
+  <div class="topbar-brand">
+    <div class="topbar-logo">
+      <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+    </div>
+    <div>
+      <div class="topbar-title">Panel de Administración</div>
+      <div class="topbar-subtitle">Boda Starlin &amp; Reneisy · 21 Nov 2026</div>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <button class="btn-sm btn-outline" id="export-btn">
+      <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+      <span>Exportar</span>
+    </button>
+    <button class="btn-sm btn-outline" id="logout-btn">
+      <svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+      <span>Salir</span>
+    </button>
+  </div>
+</header>
+
+<!-- ══ MAIN ══ -->
+<main class="main">
+
+  <!-- Shareable link -->
+  <div style="background:var(--white);border-radius:16px;padding:1.2rem 1.6rem;box-shadow:var(--shadow);border:1px solid rgba(90,122,92,.12);margin-bottom:1.5rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+    <div style="flex:1;min-width:200px;">
+      <div style="font-size:.58rem;letter-spacing:.22em;text-transform:uppercase;color:var(--green);margin-bottom:.3rem;">Enlace de invitación</div>
+      <code id="share-link" style="font-size:.78rem;color:var(--text);word-break:break-all;line-height:1.5;"></code>
+    </div>
+    <button class="btn-sm btn-green" id="copy-link-btn" style="flex-shrink:0;">
+      <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+      <span>Copiar enlace</span>
+    </button>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats" id="stats-grid">
+    <div class="stat-card green">
+      <div class="stat-label">Confirman asistencia</div>
+      <div class="stat-value" id="s-yes">0</div>
+      <div class="stat-sub">personas (incluyendo acompañantes)</div>
+    </div>
+    <div class="stat-card red">
+      <div class="stat-label">No asistirán</div>
+      <div class="stat-value" id="s-no">0</div>
+      <div class="stat-sub">registros</div>
+    </div>
+    <div class="stat-card dark">
+      <div class="stat-label">Total de registros</div>
+      <div class="stat-value" id="s-total">0</div>
+      <div class="stat-sub">formularios enviados</div>
+    </div>
+    <div class="stat-card gold">
+      <div class="stat-label">Cupos disponibles</div>
+      <div class="stat-value" id="s-remaining">100</div>
+      <div class="stat-sub">de 100 máximo</div>
+    </div>
+    <div class="stat-card" style="background:rgba(201,168,76,.08);border-color:rgba(201,168,76,.2);">
+      <div class="stat-label" style="color:var(--gold);">Con acompañante</div>
+      <div class="stat-value" id="s-comp" style="color:var(--gold);">0</div>
+      <div class="stat-sub">invitados con +1</div>
+    </div>
+  </div>
+
+  <!-- Capacity bar -->
+  <div class="capacity-bar-wrap">
+    <div class="cap-header">
+      <span class="cap-title">Capacidad del evento</span>
+      <span class="cap-pct" id="cap-pct">0%</span>
+    </div>
+    <div class="cap-bar">
+      <div class="cap-fill" id="cap-fill" style="width:0%"></div>
+    </div>
+  </div>
+
+  <!-- Filters + Search -->
+  <div class="filters">
+    <button class="filter-btn active" data-filter="all">Todos</button>
+    <button class="filter-btn" data-filter="si">Asistirán</button>
+    <button class="filter-btn" data-filter="no">No asistirán</button>
+    <div class="search-wrap">
+      <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      <input type="text" id="search-input" placeholder="Buscar por nombre o teléfono…" />
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-card">
+    <div class="table-scroll">
+      <table id="rsvp-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Nombre</th>
+            <th>Teléfono</th>
+            <th>Asistencia</th>
+            <th>Acompañante</th>
+            <th>Mensaje</th>
+            <th>Registro</th>
+            <th>Acción</th>
+          </tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+      </table>
+      <div id="empty-state" class="empty-state" style="display:none">
+        <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>
+        <h3>Sin registros</h3>
+        <p>Aún no hay nadie confirmado en este filtro.</p>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ══ TOAST ══ -->
+<div id="toast"></div>
+
+<!-- ══ CONFIRM DIALOG ══ -->
+<div id="confirm-dialog" role="dialog" aria-modal="true" aria-label="Confirmar eliminación">
+  <div class="dialog-box">
+    <h3>Eliminar registro</h3>
+    <p id="dialog-msg">¿Estás seguro de que deseas eliminar este registro? Esta acción no se puede deshacer.</p>
+    <div class="dialog-actions">
+      <button class="dialog-cancel" id="dialog-cancel">Cancelar</button>
+      <button class="dialog-confirm" id="dialog-confirm">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+const STORAGE_KEY = 'boda_sr_rsvps';
+const MAX_GUESTS  = 100;
+const PASSWORD    = 'StarRen2026';
+
+/* ─── LOGIN ─── */
+const loginScreen = document.getElementById('login-screen');
+const pwdInput    = document.getElementById('pwd-input');
+const loginBtn    = document.getElementById('login-btn');
+const loginError  = document.getElementById('login-error');
+
+function tryLogin(){
+  if(pwdInput.value === PASSWORD){
+    loginScreen.classList.add('hide');
+    setTimeout(()=>{ loginScreen.style.display='none'; }, 500);
+    renderAll();
+  } else {
+    loginError.classList.add('show');
+    pwdInput.style.borderColor = '#C0504A';
+    setTimeout(()=>{ loginError.classList.remove('show'); pwdInput.style.borderColor=''; }, 2500);
+  }
+}
+loginBtn.addEventListener('click', tryLogin);
+pwdInput.addEventListener('keydown', e=>{ if(e.key==='Enter') tryLogin(); });
+
+document.getElementById('logout-btn').addEventListener('click', ()=>{ location.reload(); });
+
+/* ─── DATA ─── */
+function getRsvps(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); }catch(e){ return []; } }
+function saveRsvps(data){ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+
+function countAttending(rsvps){
+  return rsvps.filter(r=>r.asistencia==='si').reduce((s,r)=>{
+    const extra = r.con_acompanante ? 1 : (parseInt(r.acompanantes)||0);
+    return s + 1 + extra;
+  }, 0);
+}
+function countWithCompanion(rsvps){
+  return rsvps.filter(r=>r.asistencia==='si' && r.con_acompanante).length;
+}
+
+/* ─── RENDER ─── */
+let currentFilter = 'all';
+let currentSearch = '';
+let pendingDeleteId = null;
+
+function renderAll(){
+  const rsvps = getRsvps();
+
+  /* Stats */
+  const attending  = countAttending(rsvps);
+  const withComp   = countWithCompanion(rsvps);
+  const notAtt     = rsvps.filter(r=>r.asistencia==='no').length;
+  const remaining  = Math.max(0, MAX_GUESTS - attending);
+  const pct        = Math.min(100, Math.round(attending / MAX_GUESTS * 100));
+
+  document.getElementById('s-yes').textContent       = attending;
+  document.getElementById('s-no').textContent        = notAtt;
+  document.getElementById('s-total').textContent     = rsvps.length;
+  document.getElementById('s-remaining').textContent = remaining;
+  document.getElementById('s-comp').textContent      = withComp;
+  document.getElementById('cap-pct').textContent     = pct + '%';
+  document.getElementById('cap-fill').style.width    = pct + '%';
+
+  /* Filter + search */
+  let filtered = rsvps;
+  if(currentFilter !== 'all') filtered = filtered.filter(r=>r.asistencia===currentFilter);
+  if(currentSearch){
+    const q = currentSearch.toLowerCase();
+    filtered = filtered.filter(r=>
+      (r.nombre||'').toLowerCase().includes(q) ||
+      (r.telefono||'').toLowerCase().includes(q) ||
+      (r.acompanante_nombre||'').toLowerCase().includes(q)
+    );
+  }
+
+  /* Table */
+  const tbody = document.getElementById('table-body');
+  const empty = document.getElementById('empty-state');
+  tbody.innerHTML = '';
+
+  if(filtered.length === 0){
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  filtered.forEach((r, idx) => {
+    const date = r.fecha ? new Date(r.fecha).toLocaleDateString('es-DO',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+    let acompCell;
+    if(r.asistencia !== 'si'){
+      acompCell = '<span style="color:var(--text-soft);font-size:.74rem;">—</span>';
+    } else if(r.con_acompanante && r.acompanante_nombre){
+      acompCell = `<span class="badge badge-yes"><span class="badge-dot"></span>${esc(r.acompanante_nombre)}</span>`;
+    } else if(r.con_acompanante){
+      acompCell = '<span class="badge badge-yes"><span class="badge-dot"></span>Sí</span>';
+    } else if(parseInt(r.acompanantes) > 0){
+      acompCell = `<span class="badge badge-yes"><span class="badge-dot"></span>+${parseInt(r.acompanantes)}</span>`;
+    } else {
+      acompCell = '<span style="color:var(--text-soft);font-size:.74rem;">Solo</span>';
+    }
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="color:var(--text-soft);font-size:.72rem;">${idx+1}</td>
+      <td>
+        <div class="td-name">${esc(r.nombre||'—')}</div>
+      </td>
+      <td class="td-phone">${esc(r.telefono||'—')}</td>
+      <td>
+        <span class="badge badge-${r.asistencia==='si'?'yes':'no'}">
+          <span class="badge-dot"></span>
+          ${r.asistencia==='si' ? 'Asistirá' : 'No asistirá'}
+        </span>
+      </td>
+      <td>${acompCell}</td>
+      <td style="font-size:.74rem;color:var(--text-soft);max-width:200px;word-break:break-word;">${esc(r.mensaje||'—')}</td>
+      <td class="td-date">${date}</td>
+      <td>
+        <button class="del-btn" data-id="${r.id}">
+          <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+          Eliminar
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  /* Delete events */
+  tbody.querySelectorAll('.del-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      pendingDeleteId = parseInt(btn.dataset.id);
+      const row = btn.closest('tr');
+      const nombre = row.querySelector('.td-name')?.textContent || 'este registro';
+      document.getElementById('dialog-msg').textContent =
+        `¿Eliminar a "${nombre}" de la lista de confirmaciones?`;
+      document.getElementById('confirm-dialog').classList.add('show');
+    });
+  });
+}
+
+function esc(str){ return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+/* ─── FILTERS ─── */
+document.querySelectorAll('.filter-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    currentFilter = btn.dataset.filter;
+    renderAll();
+  });
+});
+document.getElementById('search-input').addEventListener('input', e=>{
+  currentSearch = e.target.value.trim();
+  renderAll();
+});
+
+/* ─── DELETE ─── */
+document.getElementById('dialog-cancel').addEventListener('click', ()=>{
+  document.getElementById('confirm-dialog').classList.remove('show');
+  pendingDeleteId = null;
+});
+document.getElementById('dialog-confirm').addEventListener('click', ()=>{
+  if(pendingDeleteId === null) return;
+  const rsvps = getRsvps().filter(r=>r.id !== pendingDeleteId);
+  saveRsvps(rsvps);
+  pendingDeleteId = null;
+  document.getElementById('confirm-dialog').classList.remove('show');
+  showToast('Registro eliminado correctamente.');
+  renderAll();
+});
+
+/* ─── EXPORT CSV ─── */
+document.getElementById('export-btn').addEventListener('click', ()=>{
+  const rsvps = getRsvps();
+  if(rsvps.length===0){ showToast('No hay registros para exportar.'); return; }
+  const header = ['#','Nombre','Telefono','Asistencia','Con Acompanante','Nombre Acompanante','Mensaje','Fecha'];
+  const rows = rsvps.map((r,i)=>[
+    i+1,
+    `"${(r.nombre||'').replace(/"/g,'""')}"`,
+    `"${(r.telefono||'').replace(/"/g,'""')}"`,
+    r.asistencia==='si' ? 'Si' : 'No',
+    r.asistencia==='si' ? (r.con_acompanante ? 'Si' : 'No') : '—',
+    `"${(r.acompanante_nombre||'').replace(/"/g,'""')}"`,
+    `"${(r.mensaje||'').replace(/"/g,'""')}"`,
+    r.fecha ? new Date(r.fecha).toLocaleString('es-DO') : ''
+  ]);
+  const csv = [header, ...rows].map(r=>r.join(',')).join('\r\n');
+  const blob = new Blob(['﻿'+csv], { type:'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'confirmaciones-boda-starlin-reneisy.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  showToast('Lista exportada correctamente.');
+});
+
+/* ─── TOAST ─── */
+let toastTimer;
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 2800);
+}
+
+/* ─── Close dialog on backdrop click ─── */
+document.getElementById('confirm-dialog').addEventListener('click', e=>{
+  if(e.target === document.getElementById('confirm-dialog')){
+    document.getElementById('confirm-dialog').classList.remove('show');
+    pendingDeleteId = null;
+  }
+});
+
+/* ─── Auto-refresh every 30 seconds ─── */
+setInterval(renderAll, 30000);
+
+/* ─── Shareable link ─── */
+(function(){
+  var base = location.href.replace('admin.html','index.html').split('?')[0];
+  var link = base + '?inv=BodaStarlinReneisy2026';
+  var el   = document.getElementById('share-link');
+  if(el) el.textContent = link;
+
+  document.getElementById('copy-link-btn').addEventListener('click', function(){
+    navigator.clipboard.writeText(link).then(function(){
+      showToast('Enlace de invitación copiado.');
+    });
+  });
+})();
+
+})();
+</script>
+</body>
+</html>
