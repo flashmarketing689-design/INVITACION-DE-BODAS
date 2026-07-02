@@ -1575,30 +1575,12 @@ section {
             </div>
           </div>
         </div>
-        <div class="f-group" id="comp-group" style="display:none">
-          <label>¿Viene con acompañante?</label>
-          <div class="rsvp-opts">
-            <div class="rsvp-opt">
-              <input type="radio" name="con_acompanante" id="comp-si" value="si" />
-              <label for="comp-si">Sí, con acompañante</label>
-            </div>
-            <div class="rsvp-opt">
-              <input type="radio" name="con_acompanante" id="comp-no" value="no" />
-              <label for="comp-no">Solo yo</label>
-            </div>
-          </div>
-        </div>
-        <div class="f-group" id="comp-name-group" style="display:none">
-          <label for="acomp-nombre">Nombre completo del acompañante</label>
-          <input type="text" id="acomp-nombre" name="acomp_nombre" placeholder="Nombre y apellido del acompañante" autocomplete="off" />
-          <p class="rsvp-field-err" id="err-acomp">Por favor ingresa el nombre completo del acompañante.</p>
-        </div>
         <div class="f-group">
           <label for="mensaje">Mensaje para los novios</label>
           <textarea id="mensaje" name="mensaje" placeholder="Comparte tus mejores deseos para Starlin & Reneisy..."></textarea>
         </div>
         <button type="submit" class="submit-btn">Confirmar Asistencia</button>
-        <p class="rsvp-private-note">Esta invitación es personal e intransferible. Cada invitado podrá asistir únicamente con un (1) acompañante previamente autorizado. Agradecemos profundamente su comprensión y discreción.</p>
+        <p class="rsvp-private-note">Esta invitación es personal e intransferible, válida únicamente para el invitado indicado. Agradecemos profundamente su comprensión y discreción.</p>
       </form>
     </div>
   </div>
@@ -1740,18 +1722,13 @@ const MAX_GUESTS  = 100;
 function getRsvps(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); }catch(e){ return []; } }
 function saveRsvps(data){ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
 function countAttending(){
-  return getRsvps().filter(r=>r.asistencia==='si').reduce((s,r)=>{
-    const extra = r.con_acompanante ? 1 : (parseInt(r.acompanantes)||0);
-    return s + 1 + extra;
-  }, 0);
+  return getRsvps().filter(r=>r.asistencia==='si').length;
 }
 
-const form        = document.getElementById('rsvp-form');
-const success     = document.getElementById('success-msg');
-const limitMsg    = document.getElementById('limit-msg');
-const compGrp     = document.getElementById('comp-group');
-const compNameGrp = document.getElementById('comp-name-group');
-const rsvpBox     = document.querySelector('.rsvp-box');
+const form    = document.getElementById('rsvp-form');
+const success = document.getElementById('success-msg');
+const limitMsg= document.getElementById('limit-msg');
+const rsvpBox = document.querySelector('.rsvp-box');
 
 /* Check limit on load */
 (function checkLimit(){
@@ -1760,26 +1737,6 @@ const rsvpBox     = document.querySelector('.rsvp-box');
     limitMsg.style.display='block';
   }
 })();
-
-document.querySelectorAll('input[name="asistencia"]').forEach(r=>{
-  r.addEventListener('change', ()=>{
-    if(r.value==='si'){
-      compGrp.style.display='block';
-    } else {
-      compGrp.style.display='none';
-      compNameGrp.style.display='none';
-      document.querySelectorAll('input[name="con_acompanante"]').forEach(c=>{ c.checked=false; });
-      document.getElementById('acomp-nombre').value='';
-    }
-  });
-});
-
-document.querySelectorAll('input[name="con_acompanante"]').forEach(c=>{
-  c.addEventListener('change', ()=>{
-    compNameGrp.style.display = c.value==='si' ? 'block' : 'none';
-    if(c.value==='no'){ document.getElementById('acomp-nombre').value=''; document.getElementById('err-acomp').classList.remove('show'); }
-  });
-});
 
 form.addEventListener('submit', async e=>{
   e.preventDefault();
@@ -1795,18 +1752,7 @@ form.addEventListener('submit', async e=>{
   errNombre.classList.remove('show');
   form.nombre.style.borderColor='';
 
-  const asistencia  = (form.querySelector('input[name="asistencia"]:checked')||{}).value || 'no';
-  const conAcompVal = asistencia==='si' ? ((form.querySelector('input[name="con_acompanante"]:checked')||{}).value||'') : '';
-  const conAcomp    = conAcompVal === 'si';
-  const acompNombre = conAcomp ? (document.getElementById('acomp-nombre').value.trim()) : '';
-
-  if(conAcomp && !acompNombre){
-    const inp = document.getElementById('acomp-nombre');
-    inp.style.borderColor='#C0705A';
-    document.getElementById('err-acomp').classList.add('show');
-    inp.focus();
-    return;
-  }
+  const asistencia = (form.querySelector('input[name="asistencia"]:checked')||{}).value || 'no';
 
   /* Re-check limit before saving */
   if(asistencia==='si' && countAttending() >= MAX_GUESTS){
@@ -1822,14 +1768,12 @@ form.addEventListener('submit', async e=>{
   /* Save to localStorage */
   const rsvps = getRsvps();
   rsvps.push({
-    id:               Date.now(),
-    nombre:           nombre,
-    telefono:         form.telefono.value.trim(),
-    asistencia:       asistencia,
-    con_acompanante:  conAcomp,
-    acompanante_nombre: acompNombre,
-    mensaje:          form.mensaje.value.trim(),
-    fecha:            new Date().toISOString()
+    id:         Date.now(),
+    nombre:     nombre,
+    telefono:   form.telefono.value.trim(),
+    asistencia: asistencia,
+    mensaje:    form.mensaje.value.trim(),
+    fecha:      new Date().toISOString()
   });
   saveRsvps(rsvps);
 
@@ -1840,9 +1784,7 @@ form.addEventListener('submit', async e=>{
 document.querySelectorAll('.f-group input').forEach(i=>{
   i.addEventListener('input',()=>{
     i.style.borderColor='';
-    const err = document.getElementById('err-'+i.id) || document.getElementById('err-acomp');
     if(i.id==='nombre') document.getElementById('err-nombre')?.classList.remove('show');
-    if(i.id==='acomp-nombre') document.getElementById('err-acomp')?.classList.remove('show');
   });
 });
 

@@ -438,11 +438,6 @@ tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
       <div class="stat-value" id="s-remaining">100</div>
       <div class="stat-sub">de 100 máximo</div>
     </div>
-    <div class="stat-card" style="background:rgba(201,168,76,.08);border-color:rgba(201,168,76,.2);">
-      <div class="stat-label" style="color:var(--gold);">Con acompañante</div>
-      <div class="stat-value" id="s-comp" style="color:var(--gold);">0</div>
-      <div class="stat-sub">invitados con +1</div>
-    </div>
   </div>
 
   <!-- Capacity bar -->
@@ -477,7 +472,6 @@ tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
             <th>Nombre</th>
             <th>Teléfono</th>
             <th>Asistencia</th>
-            <th>Acompañante</th>
             <th>Mensaje</th>
             <th>Registro</th>
             <th>Acción</th>
@@ -545,13 +539,7 @@ function getRsvps(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'
 function saveRsvps(data){ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
 
 function countAttending(rsvps){
-  return rsvps.filter(r=>r.asistencia==='si').reduce((s,r)=>{
-    const extra = r.con_acompanante ? 1 : (parseInt(r.acompanantes)||0);
-    return s + 1 + extra;
-  }, 0);
-}
-function countWithCompanion(rsvps){
-  return rsvps.filter(r=>r.asistencia==='si' && r.con_acompanante).length;
+  return rsvps.filter(r=>r.asistencia==='si').length;
 }
 
 /* ─── RENDER ─── */
@@ -563,17 +551,15 @@ function renderAll(){
   const rsvps = getRsvps();
 
   /* Stats */
-  const attending  = countAttending(rsvps);
-  const withComp   = countWithCompanion(rsvps);
-  const notAtt     = rsvps.filter(r=>r.asistencia==='no').length;
-  const remaining  = Math.max(0, MAX_GUESTS - attending);
-  const pct        = Math.min(100, Math.round(attending / MAX_GUESTS * 100));
+  const attending = countAttending(rsvps);
+  const notAtt    = rsvps.filter(r=>r.asistencia==='no').length;
+  const remaining = Math.max(0, MAX_GUESTS - attending);
+  const pct       = Math.min(100, Math.round(attending / MAX_GUESTS * 100));
 
   document.getElementById('s-yes').textContent       = attending;
   document.getElementById('s-no').textContent        = notAtt;
   document.getElementById('s-total').textContent     = rsvps.length;
   document.getElementById('s-remaining').textContent = remaining;
-  document.getElementById('s-comp').textContent      = withComp;
   document.getElementById('cap-pct').textContent     = pct + '%';
   document.getElementById('cap-fill').style.width    = pct + '%';
 
@@ -602,18 +588,6 @@ function renderAll(){
 
   filtered.forEach((r, idx) => {
     const date = r.fecha ? new Date(r.fecha).toLocaleDateString('es-DO',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
-    let acompCell;
-    if(r.asistencia !== 'si'){
-      acompCell = '<span style="color:var(--text-soft);font-size:.74rem;">—</span>';
-    } else if(r.con_acompanante && r.acompanante_nombre){
-      acompCell = `<span class="badge badge-yes"><span class="badge-dot"></span>${esc(r.acompanante_nombre)}</span>`;
-    } else if(r.con_acompanante){
-      acompCell = '<span class="badge badge-yes"><span class="badge-dot"></span>Sí</span>';
-    } else if(parseInt(r.acompanantes) > 0){
-      acompCell = `<span class="badge badge-yes"><span class="badge-dot"></span>+${parseInt(r.acompanantes)}</span>`;
-    } else {
-      acompCell = '<span style="color:var(--text-soft);font-size:.74rem;">Solo</span>';
-    }
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td style="color:var(--text-soft);font-size:.72rem;">${idx+1}</td>
@@ -627,7 +601,6 @@ function renderAll(){
           ${r.asistencia==='si' ? 'Asistirá' : 'No asistirá'}
         </span>
       </td>
-      <td>${acompCell}</td>
       <td style="font-size:.74rem;color:var(--text-soft);max-width:200px;word-break:break-word;">${esc(r.mensaje||'—')}</td>
       <td class="td-date">${date}</td>
       <td>
@@ -688,14 +661,12 @@ document.getElementById('dialog-confirm').addEventListener('click', ()=>{
 document.getElementById('export-btn').addEventListener('click', ()=>{
   const rsvps = getRsvps();
   if(rsvps.length===0){ showToast('No hay registros para exportar.'); return; }
-  const header = ['#','Nombre','Telefono','Asistencia','Con Acompanante','Nombre Acompanante','Mensaje','Fecha'];
+  const header = ['#','Nombre','Telefono','Asistencia','Mensaje','Fecha'];
   const rows = rsvps.map((r,i)=>[
     i+1,
     `"${(r.nombre||'').replace(/"/g,'""')}"`,
     `"${(r.telefono||'').replace(/"/g,'""')}"`,
     r.asistencia==='si' ? 'Si' : 'No',
-    r.asistencia==='si' ? (r.con_acompanante ? 'Si' : 'No') : '—',
-    `"${(r.acompanante_nombre||'').replace(/"/g,'""')}"`,
     `"${(r.mensaje||'').replace(/"/g,'""')}"`,
     r.fecha ? new Date(r.fecha).toLocaleString('es-DO') : ''
   ]);
