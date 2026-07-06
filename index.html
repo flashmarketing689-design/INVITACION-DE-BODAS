@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Starlin &amp; Reneisy — Nos Casamos · 21 Nov 2026</title>
   <meta name="description" content="Tienes una invitacion especial. Celebra con nosotros el dia mas importante de nuestras vidas. 21 de noviembre de 2026 · El Salto de Anamuya, Republica Dominicana." />
+  <meta name="theme-color" content="#F8F5F0" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="apple-touch-icon" href="favicon.svg" />
 
   <!-- Open Graph / WhatsApp -->
   <meta property="og:type"        content="website" />
@@ -1616,6 +1619,7 @@ section {
     <p class="footer-tagline">
       "Gracias por acompañarnos en el comienzo de nuestra historia para siempre."
     </p>
+    <a href="admin.html" class="footer-admin-link" aria-label="Acceder al panel de administración">Panel de administración</a>
     <div class="footer-divider"></div>
     <p class="footer-love">Con amor</p>
     <div class="footer-names">Starlin &amp; Reneisy</div>
@@ -1729,10 +1733,7 @@ const form    = document.getElementById('rsvp-form');
 const success = document.getElementById('success-msg');
 const limitMsg= document.getElementById('limit-msg');
 const rsvpBox = document.querySelector('.rsvp-box');
-
-/* Check limit on load */
-(function checkLimit(){
-  if(countAttending() >= MAX_GUESTS){
+  const submitBtn = form?.querySelector('.submit-btn');
     form.style.display='none';
     limitMsg.style.display='block';
   }
@@ -1761,8 +1762,8 @@ form.addEventListener('submit', async e=>{
     return;
   }
 
-  const btn = form.querySelector('.submit-btn');
-  btn.disabled = true; btn.textContent = 'Enviando…';
+  const btn = submitBtn || form.querySelector('.submit-btn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Enviando…'; }
   await new Promise(r=>setTimeout(r,900));
 
   /* Save to localStorage */
@@ -1779,7 +1780,8 @@ form.addEventListener('submit', async e=>{
 
   form.style.display = 'none';
   success.classList.add('show');
-  success.querySelector('.success-icon').style.animation='bounce .6s ease';
+  if(success.querySelector('.success-icon')) success.querySelector('.success-icon').style.animation='bounce .6s ease';
+  if(btn){ btn.disabled = false; btn.textContent = 'Confirmar asistencia'; }
 });
 document.querySelectorAll('.f-group input').forEach(i=>{
   i.addEventListener('input',()=>{
