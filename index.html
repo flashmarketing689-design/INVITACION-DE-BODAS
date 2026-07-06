@@ -1723,7 +1723,32 @@ document.querySelectorAll('.copy-btn').forEach(btn=>{
 const STORAGE_KEY = 'boda_sr_rsvps';
 const MAX_GUESTS  = 100;
 
+async function syncLocalRsvps(){
+  const localEntries = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  if(!Array.isArray(localEntries) || localEntries.length === 0) return;
+  if(localStorage.getItem(`${STORAGE_KEY}_synced`) === '1') return;
+
+  try{
+    const res = await fetch('/api/rsvps', { cache: 'no-store' });
+    const serverEntries = res.ok ? await res.json() : [];
+    const serverIds = new Set((Array.isArray(serverEntries) ? serverEntries : []).map(e => e.id));
+    const toUpload = localEntries.filter(e => !serverIds.has(e.id));
+
+    for(const entry of toUpload){
+      await fetch('/api/rsvps', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(entry)
+      });
+    }
+
+    localStorage.setItem(`${STORAGE_KEY}_synced`, '1');
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([...serverEntries, ...toUpload]));
+  } catch(e){}
+}
+
 async function getRsvps(){
+  await syncLocalRsvps();
   try{
     const res = await fetch('/api/rsvps', { cache: 'no-store' });
     if(res.ok){
@@ -1768,7 +1793,8 @@ const limitMsg= document.getElementById('limit-msg');
 const rsvpBox = document.querySelector('.rsvp-box');
 const submitBtn = form?.querySelector('.submit-btn');
 
-(function initLimit(){
+(async function initLimit(){
+  await syncLocalRsvps();
   if(!form) return;
   countAttending().then(count=>{
     if(count >= MAX_GUESTS){
