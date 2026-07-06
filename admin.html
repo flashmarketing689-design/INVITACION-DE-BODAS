@@ -542,8 +542,30 @@ pwdInput.addEventListener('keydown', e=>{ if(e.key==='Enter') tryLogin(); });
 document.getElementById('logout-btn').addEventListener('click', ()=>{ location.reload(); });
 
 /* ─── DATA ─── */
-function getRsvps(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); }catch(e){ return []; } }
-function saveRsvps(data){ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+async function getRsvps(){
+  try{
+    const res = await fetch('/api/rsvps', { cache: 'no-store' });
+    if(res.ok){
+      const data = await res.json();
+      if(Array.isArray(data)){
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        return data;
+      }
+    }
+  } catch(e){}
+  try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); }catch(e){ return []; }
+}
+
+async function saveRsvps(data){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  try{
+    await fetch('/api/rsvps', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+  } catch(e){}
+}
 
 function countAttending(rsvps){
   return rsvps.filter(r=>r.asistencia==='si').length;
@@ -554,8 +576,8 @@ let currentFilter = 'all';
 let currentSearch = '';
 let pendingDeleteId = null;
 
-function renderAll(){
-  const rsvps = getRsvps();
+async function renderAll(){
+  const rsvps = await getRsvps();
 
   /* Stats */
   const attending = countAttending(rsvps);
@@ -654,10 +676,10 @@ document.getElementById('dialog-cancel').addEventListener('click', ()=>{
   document.getElementById('confirm-dialog').classList.remove('show');
   pendingDeleteId = null;
 });
-document.getElementById('dialog-confirm').addEventListener('click', ()=>{
+document.getElementById('dialog-confirm').addEventListener('click', async ()=>{
   if(pendingDeleteId === null) return;
-  const rsvps = getRsvps().filter(r=>r.id !== pendingDeleteId);
-  saveRsvps(rsvps);
+  const rsvps = (await getRsvps()).filter(r=>r.id !== pendingDeleteId);
+  await saveRsvps(rsvps);
   pendingDeleteId = null;
   document.getElementById('confirm-dialog').classList.remove('show');
   showToast('Registro eliminado correctamente.');
@@ -665,8 +687,8 @@ document.getElementById('dialog-confirm').addEventListener('click', ()=>{
 });
 
 /* ─── EXPORT CSV ─── */
-document.getElementById('export-btn').addEventListener('click', ()=>{
-  const rsvps = getRsvps();
+document.getElementById('export-btn').addEventListener('click', async ()=>{
+  const rsvps = await getRsvps();
   if(rsvps.length===0){ showToast('No hay registros para exportar.'); return; }
   const header = ['#','Nombre','Telefono','Asistencia','Mensaje','Fecha'];
   const rows = rsvps.map((r,i)=>[

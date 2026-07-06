@@ -1723,20 +1723,59 @@ document.querySelectorAll('.copy-btn').forEach(btn=>{
 const STORAGE_KEY = 'boda_sr_rsvps';
 const MAX_GUESTS  = 100;
 
-function getRsvps(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); }catch(e){ return []; } }
-function saveRsvps(data){ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
-function countAttending(){
-  return getRsvps().filter(r=>r.asistencia==='si').length;
+async function getRsvps(){
+  try{
+    const res = await fetch('/api/rsvps', { cache: 'no-store' });
+    if(res.ok){
+      const data = await res.json();
+      if(Array.isArray(data)){
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        return data;
+      }
+    }
+  } catch(e){}
+  try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); }catch(e){ return []; }
+}
+
+async function saveRsvpEntry(entry){
+  try{
+    const res = await fetch('/api/rsvps', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(entry)
+    });
+    if(res.ok){
+      const saved = await res.json();
+      const current = await getRsvps();
+      const merged = [...current, saved];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      return saved;
+    }
+  } catch(e){}
+  const current = await getRsvps();
+  const merged = [...current, entry];
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+  return entry;
+}
+
+async function countAttending(){
+  return (await getRsvps()).filter(r=>r.asistencia==='si').length;
 }
 
 const form    = document.getElementById('rsvp-form');
 const success = document.getElementById('success-msg');
 const limitMsg= document.getElementById('limit-msg');
 const rsvpBox = document.querySelector('.rsvp-box');
-  const submitBtn = form?.querySelector('.submit-btn');
-    form.style.display='none';
-    limitMsg.style.display='block';
-  }
+const submitBtn = form?.querySelector('.submit-btn');
+
+(function initLimit(){
+  if(!form) return;
+  countAttending().then(count=>{
+    if(count >= MAX_GUESTS){
+      form.style.display='none';
+      limitMsg.style.display='block';
+    }
+  });
 })();
 
 form.addEventListener('submit', async e=>{
@@ -1756,7 +1795,8 @@ form.addEventListener('submit', async e=>{
   const asistencia = (form.querySelector('input[name="asistencia"]:checked')||{}).value || 'no';
 
   /* Re-check limit before saving */
-  if(asistencia==='si' && countAttending() >= MAX_GUESTS){
+  const attendingCount = await countAttending();
+  if(asistencia==='si' && attendingCount >= MAX_GUESTS){
     form.style.display='none';
     limitMsg.style.display='block';
     return;
@@ -1766,9 +1806,8 @@ form.addEventListener('submit', async e=>{
   if(btn){ btn.disabled = true; btn.textContent = 'Enviando…'; }
   await new Promise(r=>setTimeout(r,900));
 
-  /* Save to localStorage */
-  const rsvps = getRsvps();
-  rsvps.push({
+  /* Save to shared storage */
+  await saveRsvpEntry({
     id:         Date.now(),
     nombre:     nombre,
     telefono:   form.telefono.value.trim(),
@@ -1776,7 +1815,6 @@ form.addEventListener('submit', async e=>{
     mensaje:    form.mensaje.value.trim(),
     fecha:      new Date().toISOString()
   });
-  saveRsvps(rsvps);
 
   form.style.display = 'none';
   success.classList.add('show');
