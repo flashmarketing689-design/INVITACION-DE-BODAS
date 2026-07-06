@@ -530,7 +530,7 @@ async function tryLogin(){
     loginScreen.classList.add('hide');
     setTimeout(()=>{ loginScreen.style.display='none'; }, 500);
     await syncLocalRsvps();
-    renderAll();
+    await renderAll();
   } else {
     loginError.classList.add('show');
     pwdInput.style.borderColor = '#C0504A';
@@ -604,6 +604,7 @@ let pendingDeleteId = null;
 
 async function renderAll(){
   const rsvps = await getRsvps();
+  if(!Array.isArray(rsvps)) return;
 
   /* Stats */
   const attending = countAttending(rsvps);
@@ -753,7 +754,12 @@ document.getElementById('confirm-dialog').addEventListener('click', e=>{
 });
 
 /* ─── Auto-refresh every 30 seconds ─── */
-setInterval(renderAll, 30000);
+setInterval(()=>{ renderAll(); }, 30000);
+
+(async function boot(){
+  await syncLocalRsvps();
+  await renderAll();
+})();
 
 /* ─── Shareable link ─── */
 (function(){
