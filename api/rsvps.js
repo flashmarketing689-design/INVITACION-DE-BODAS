@@ -1,12 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-
-function getFilePath() {
-  if (process.env.VERCEL || process.env.VERCEL_ENV) {
-    return path.join('/tmp', 'rsvps.json');
-  }
-  return path.join(process.cwd(), 'data', 'rsvps.json');
-}
+const { supabase, supabaseConfigured } = require('./supabaseClient');
 
 function parseBody(body) {
   if (!body) return {};
@@ -19,6 +13,38 @@ function parseBody(body) {
   return body;
 }
 
+function getDataFilePath() {
+  return path.join(__dirname, '..', 'data', 'rsvps.json');
+}
+
+function readStore() {
+  const filePath = getDataFilePath();
+  try {
+    if (!fs.existsSync(filePath)) {
+      fs.mkdirSync(path.dirname(filePath), { recursive: true });
+      fs.writeFileSync(filePath, '[]', 'utf8');
+      return [];
+    }
+    const raw = fs.readFileSync(filePath, 'utf8');
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.error('Error reading RSVP store:', error.message);
+    return [];
+  }
+}
+
+function writeStore(rows) {
+  const filePath = getDataFilePath();
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify(rows, null, 2), 'utf8');
+  return rows;
+}
+
+function sortRows(rows) {
+  return [...rows].sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0));
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,OPTIONS');
@@ -29,42 +55,108 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const filePath = getFilePath();
-  const dir = path.dirname(filePath);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-  if (!fs.existsSync(filePath)) {
-    fs.writeFileSync(filePath, '[]');
-  }
-
   if (req.method === 'GET') {
-    const content = fs.readFileSync(filePath, 'utf8');
-    res.status(200).json(JSON.parse(content));
+    if (supabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('rsvps')
+          .select('*')
+          .order('fecha', { ascending: false });
+
+        if (!error) {
+          const rows = Array.isArray(data) ? data : [];
+          writeStore(rows);
+          res.status(200).json(sortRows(rows));
+          return;
+        }
+
+        console.error('Supabase read error:', error.message);
+      } catch (error) {
+        console.error('Supabase read failed:', error.message);
+      }
+    }
+
+    res.status(200).json(sortRows(readStore()));
     return;
   }
 
   if (req.method === 'POST') {
     const payload = parseBody(req.body);
-    const current = JSON.parse(fs.readFileSync(filePath, 'utf8'));
     const entry = {
       id: payload.id || Date.now(),
       nombre: payload.nombre || '',
       telefono: payload.telefono || '',
       asistencia: payload.asistencia || 'no',
       mensaje: payload.mensaje || '',
-      fecha: payload.fecha || new Date().toISOString()
+      fecha: payload.fecha || new Date().toISOString(),
     };
-    current.push(entry);
-    fs.writeFileSync(filePath, JSON.stringify(current, null, 2));
+
+    if (supabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('rsvps')
+          .insert(entry)
+          .select()
+          .single();
+
+        if (!error && data) {
+          const rows = sortRows([...readStore(), data]);
+          writeStore(rows);
+          res.status(200).json(data);
+          return;
+        }
+
+        console.error('Supabase insert error:', error?.message || 'unknown');
+      } catch (error) {
+        console.error('Supabase insert failed:', error.message);
+      }
+    }
+
+    const rows = sortRows([...readStore(), entry]);
+    writeStore(rows);
     res.status(200).json(entry);
     return;
   }
 
   if (req.method === 'PUT') {
-    const data = Array.isArray(parseBody(req.body)) ? parseBody(req.body) : [];
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-    res.status(200).json(data);
+    const incoming = Array.isArray(parseBody(req.body)) ? parseBody(req.body) : [];
+
+    if (supabaseConfigured && supabase) {
+      try {
+        const deleteResult = await supabase
+          .from('rsvps')
+          .delete()
+          .not('id', 'is', null);
+
+        if (!deleteResult.error) {
+          if (incoming.length === 0) {
+            writeStore([]);
+            res.status(200).json([]);
+            return;
+          }
+
+          const { data: inserted, error } = await supabase
+            .from('rsvps')
+            .insert(incoming)
+            .select();
+
+          if (!error && inserted) {
+            writeStore(inserted);
+            res.status(200).json(inserted || []);
+            return;
+          }
+
+          console.error('Supabase replace error:', error?.message || 'unknown');
+        } else {
+          console.error('Supabase delete error:', deleteResult.error.message);
+        }
+      } catch (error) {
+        console.error('Supabase replace failed:', error.message);
+      }
+    }
+
+    writeStore(incoming);
+    res.status(200).json(incoming);
     return;
   }
 

@@ -1553,7 +1553,7 @@ section {
         <p>Hemos recibido tu respuesta.<br>Nos vemos el 21 de noviembre.</p>
       </div>
 
-      <form id="rsvp-form" novalidate>
+      <form id="rsvp-form" novalidate onsubmit="event.preventDefault(); return false;">
         <div class="f-row">
           <div class="f-group">
             <label for="nombre">Nombre completo <span style="color:#C0705A">*</span></label>
@@ -1721,7 +1721,14 @@ document.querySelectorAll('.copy-btn').forEach(btn=>{
 
 /* ─── RSVP ─── */
 const STORAGE_KEY = 'boda_sr_rsvps';
+const UPDATE_SIGNAL_KEY = `${STORAGE_KEY}_updated`;
 const MAX_GUESTS  = 100;
+
+function signalRsvpChange(){
+  try {
+    localStorage.setItem(UPDATE_SIGNAL_KEY, String(Date.now()));
+  } catch (e) {}
+}
 
 async function syncLocalRsvps(){
   const localEntries = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
@@ -1744,6 +1751,7 @@ async function syncLocalRsvps(){
 
     localStorage.setItem(`${STORAGE_KEY}_synced`, '1');
     localStorage.setItem(STORAGE_KEY, JSON.stringify([...serverEntries, ...toUpload]));
+    signalRsvpChange();
   } catch(e){}
 }
 
@@ -1774,12 +1782,14 @@ async function saveRsvpEntry(entry){
       const current = await getRsvps();
       const merged = [...current, saved];
       localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      signalRsvpChange();
       return saved;
     }
   } catch(e){}
   const current = await getRsvps();
   const merged = [...current, entry];
   localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+  signalRsvpChange();
   return entry;
 }
 

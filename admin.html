@@ -516,6 +516,7 @@ tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
 'use strict';
 
 const STORAGE_KEY = 'boda_sr_rsvps';
+const UPDATE_SIGNAL_KEY = `${STORAGE_KEY}_updated`;
 const MAX_GUESTS  = 100;
 const PASSWORD    = 'StarRen2026';
 
@@ -543,6 +544,18 @@ pwdInput.addEventListener('keydown', e=>{ if(e.key==='Enter') tryLogin(); });
 document.getElementById('logout-btn').addEventListener('click', ()=>{ location.reload(); });
 
 /* ─── DATA ─── */
+function signalRsvpChange(){
+  try {
+    localStorage.setItem(UPDATE_SIGNAL_KEY, String(Date.now()));
+  } catch (e) {}
+}
+
+window.addEventListener('storage', e=>{
+  if(e.key === UPDATE_SIGNAL_KEY){
+    renderAll();
+  }
+});
+
 async function syncLocalRsvps(){
   const localEntries = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
   if(!Array.isArray(localEntries) || localEntries.length === 0) return;
@@ -584,6 +597,7 @@ async function getRsvps(){
 
 async function saveRsvps(data){
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  signalRsvpChange();
   try{
     await fetch('/api/rsvps', {
       method: 'PUT',
@@ -760,6 +774,8 @@ setInterval(()=>{ renderAll(); }, 30000);
   await syncLocalRsvps();
   await renderAll();
 })();
+
+window.addEventListener('focus', ()=>{ renderAll(); });
 
 /* ─── Shareable link ─── */
 (function(){

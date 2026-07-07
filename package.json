@@ -1,0 +1,12 @@
+{
+  "name": "invitacion-boda",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@supabase/supabase-js": "^2.50.0",
+    "ws": "^8.21.0"
+  },
+  "devDependencies": {
+    "dotenv": "^17.4.2"
+  }
+}
