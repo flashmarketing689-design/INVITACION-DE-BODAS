@@ -99,6 +99,7 @@ body {
   transition: transform .25s, box-shadow .25s;
 }
 .login-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(90,122,92,.4); }
+.login-btn:disabled { opacity: .6; transform: none; }
 .login-error {
   font-size: .74rem; color: var(--red);
   margin-top: .8rem; display: none;
@@ -182,6 +183,7 @@ body {
 .stat-card.gold   .stat-value { color: var(--gold); }
 .stat-card.red    .stat-value { color: var(--red); }
 .stat-card.dark   .stat-value { color: var(--text); }
+.stat-card.purple .stat-value { color: #7A6AAD; }
 .stat-sub { font-size: .7rem; color: var(--text-soft); margin-top: .3rem; }
 
 /* ─── CAPACITY BAR ─── */
@@ -274,9 +276,11 @@ tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
 }
 .badge-yes { background: rgba(90,122,92,.12); color: var(--green); }
 .badge-no  { background: rgba(192,80,74,.10); color: var(--red); }
+.badge-pending { background: var(--ivory); color: var(--text-soft); }
 .badge-dot { width: 6px; height: 6px; border-radius: 50%; }
 .badge-yes .badge-dot { background: var(--green); }
 .badge-no  .badge-dot { background: var(--red); }
+.badge-pending .badge-dot { background: var(--green-l); }
 
 /* ─── DELETE BTN ─── */
 .del-btn {
@@ -411,46 +415,39 @@ tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
 <!-- ══ MAIN ══ -->
 <main class="main">
 
-  <!-- Shareable link -->
-  <div style="background:var(--white);border-radius:16px;padding:1.2rem 1.6rem;box-shadow:var(--shadow);border:1px solid rgba(90,122,92,.12);margin-bottom:1.5rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
-    <div style="flex:1;min-width:200px;">
-      <div style="font-size:.58rem;letter-spacing:.22em;text-transform:uppercase;color:var(--green);margin-bottom:.3rem;">Enlace de invitación</div>
-      <code id="share-link" style="font-size:.78rem;color:var(--text);word-break:break-all;line-height:1.5;"></code>
-    </div>
-    <button class="btn-sm btn-green" id="copy-link-btn" style="flex-shrink:0;">
-      <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-      <span>Copiar enlace</span>
-    </button>
-  </div>
-
   <!-- Stats -->
   <div class="stats" id="stats-grid">
     <div class="stat-card green">
       <div class="stat-label">Confirman asistencia</div>
       <div class="stat-value" id="s-yes">0</div>
-      <div class="stat-sub">personas (incluyendo acompañantes)</div>
+      <div class="stat-sub">invitados confirmados</div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-label">Personas confirmadas</div>
+      <div class="stat-value" id="s-people-yes">0</div>
+      <div class="stat-sub">incluyendo acompañantes</div>
     </div>
     <div class="stat-card red">
       <div class="stat-label">No asistirán</div>
       <div class="stat-value" id="s-no">0</div>
-      <div class="stat-sub">registros</div>
+      <div class="stat-sub">invitados</div>
     </div>
     <div class="stat-card dark">
-      <div class="stat-label">Total de registros</div>
-      <div class="stat-value" id="s-total">0</div>
-      <div class="stat-sub">formularios enviados</div>
+      <div class="stat-label">Pendientes de responder</div>
+      <div class="stat-value" id="s-pending">0</div>
+      <div class="stat-sub">invitados</div>
     </div>
     <div class="stat-card gold">
       <div class="stat-label">Cupos disponibles</div>
       <div class="stat-value" id="s-remaining">100</div>
-      <div class="stat-sub">de 100 máximo</div>
+      <div class="stat-sub" id="s-cap-sub">de 100 máximo</div>
     </div>
   </div>
 
   <!-- Capacity bar -->
   <div class="capacity-bar-wrap">
     <div class="cap-header">
-      <span class="cap-title">Capacidad del evento</span>
+      <span class="cap-title">Capacidad del evento · personas confirmadas</span>
       <span class="cap-pct" id="cap-pct">0%</span>
     </div>
     <div class="cap-bar">
@@ -461,8 +458,9 @@ tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
   <!-- Filters + Search -->
   <div class="filters">
     <button class="filter-btn active" data-filter="all">Todos</button>
-    <button class="filter-btn" data-filter="si">Asistirán</button>
-    <button class="filter-btn" data-filter="no">No asistirán</button>
+    <button class="filter-btn" data-filter="confirmado">Asistirán</button>
+    <button class="filter-btn" data-filter="no_asiste">No asistirán</button>
+    <button class="filter-btn" data-filter="pendiente">Pendientes</button>
     <div class="search-wrap">
       <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
       <input type="text" id="search-input" placeholder="Buscar por nombre o teléfono…" />
@@ -478,9 +476,10 @@ tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
             <th>#</th>
             <th>Nombre</th>
             <th>Teléfono</th>
-            <th>Asistencia</th>
+            <th>Personas</th>
+            <th>Respuesta</th>
             <th>Mensaje</th>
-            <th>Registro</th>
+            <th>Fecha</th>
             <th>Acción</th>
           </tr>
         </thead>
@@ -489,7 +488,7 @@ tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
       <div id="empty-state" class="empty-state" style="display:none">
         <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>
         <h3>Sin registros</h3>
-        <p>Aún no hay nadie confirmado en este filtro.</p>
+        <p>Aún no hay nadie en este filtro. Las respuestas aparecen cuando los invitados confirman desde su enlace personal.</p>
       </div>
     </div>
   </div>
@@ -502,8 +501,8 @@ tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
 <!-- ══ CONFIRM DIALOG ══ -->
 <div id="confirm-dialog" role="dialog" aria-modal="true" aria-label="Confirmar eliminación">
   <div class="dialog-box">
-    <h3>Eliminar registro</h3>
-    <p id="dialog-msg">¿Estás seguro de que deseas eliminar este registro? Esta acción no se puede deshacer.</p>
+    <h3>Eliminar respuesta</h3>
+    <p id="dialog-msg">¿Estás seguro de que deseas eliminar esta respuesta? El invitado volverá a estado pendiente y podrá responder de nuevo desde su enlace.</p>
     <div class="dialog-actions">
       <button class="dialog-cancel" id="dialog-cancel">Cancelar</button>
       <button class="dialog-confirm" id="dialog-confirm">Eliminar</button>
@@ -515,133 +514,111 @@ tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
 (function(){
 'use strict';
 
-const STORAGE_KEY = 'boda_sr_rsvps';
-const UPDATE_SIGNAL_KEY = `${STORAGE_KEY}_updated`;
-const MAX_GUESTS  = 100;
-const PASSWORD    = 'StarRen2026';
+let currentFilter = 'all';
+let currentSearch = '';
+let pendingDeleteGuestId = null;
+let currentStats = null;
 
-/* ─── LOGIN ─── */
+/* ─── LOGIN (verificada en el servidor · cookie HttpOnly) ─── */
 const loginScreen = document.getElementById('login-screen');
 const pwdInput    = document.getElementById('pwd-input');
 const loginBtn    = document.getElementById('login-btn');
 const loginError  = document.getElementById('login-error');
 
 async function tryLogin(){
-  if(pwdInput.value === PASSWORD){
-    loginScreen.classList.add('hide');
-    setTimeout(()=>{ loginScreen.style.display='none'; }, 500);
-    await syncLocalRsvps();
-    await renderAll();
-  } else {
+  loginBtn.disabled = true;
+  try{
+    const res = await fetch('/api/guests?action=login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ password: pwdInput.value })
+    });
+    if(res.ok){
+      loginScreen.classList.add('hide');
+      setTimeout(()=>{ loginScreen.style.display='none'; }, 500);
+      await renderAll();
+    } else {
+      loginError.classList.add('show');
+      pwdInput.style.borderColor = '#C0504A';
+      setTimeout(()=>{ loginError.classList.remove('show'); pwdInput.style.borderColor=''; }, 2500);
+    }
+  } catch(e){
+    loginError.textContent = 'No se pudo conectar con el servidor.';
     loginError.classList.add('show');
-    pwdInput.style.borderColor = '#C0504A';
-    setTimeout(()=>{ loginError.classList.remove('show'); pwdInput.style.borderColor=''; }, 2500);
+  } finally {
+    loginBtn.disabled = false;
   }
 }
 loginBtn.addEventListener('click', tryLogin);
 pwdInput.addEventListener('keydown', e=>{ if(e.key==='Enter') tryLogin(); });
 
-document.getElementById('logout-btn').addEventListener('click', ()=>{ location.reload(); });
-
-/* ─── DATA ─── */
-function signalRsvpChange(){
-  try {
-    localStorage.setItem(UPDATE_SIGNAL_KEY, String(Date.now()));
-  } catch (e) {}
-}
-
-window.addEventListener('storage', e=>{
-  if(e.key === UPDATE_SIGNAL_KEY){
-    renderAll();
-  }
+document.getElementById('logout-btn').addEventListener('click', async ()=>{
+  try { await fetch('/api/guests?action=logout', { method:'POST', credentials:'same-origin' }); } catch(e){}
+  location.reload();
 });
 
-async function syncLocalRsvps(){
-  const localEntries = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-  if(!Array.isArray(localEntries) || localEntries.length === 0) return;
-  if(localStorage.getItem(`${STORAGE_KEY}_synced`) === '1') return;
-
-  try{
-    const res = await fetch('/api/rsvps', { cache: 'no-store' });
-    const serverEntries = res.ok ? await res.json() : [];
-    const serverIds = new Set((Array.isArray(serverEntries) ? serverEntries : []).map(e => e.id));
-    const toUpload = localEntries.filter(e => !serverIds.has(e.id));
-
-    for(const entry of toUpload){
-      await fetch('/api/rsvps', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(entry)
-      });
-    }
-
-    localStorage.setItem(`${STORAGE_KEY}_synced`, '1');
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([...serverEntries, ...toUpload]));
-  } catch(e){}
+/* ─── DATA ─── */
+async function getStats(){
+  const res = await fetch('/api/admin/rsvps', { credentials:'same-origin', cache:'no-store' });
+  if(res.status === 401) { showLogin(); throw new Error('No autorizado'); }
+  if(!res.ok) throw new Error('Error cargando estadísticas');
+  return res.json();
 }
 
-async function getRsvps(){
-  await syncLocalRsvps();
-  try{
-    const res = await fetch('/api/rsvps', { cache: 'no-store' });
-    if(res.ok){
-      const data = await res.json();
-      if(Array.isArray(data)){
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-        return data;
-      }
-    }
-  } catch(e){}
-  try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); }catch(e){ return []; }
+function showLogin(){
+  loginScreen.style.display = 'flex';
+  loginScreen.classList.remove('hide');
 }
 
-async function saveRsvps(data){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  signalRsvpChange();
-  try{
-    await fetch('/api/rsvps', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-  } catch(e){}
-}
-
-function countAttending(rsvps){
-  return rsvps.filter(r=>r.asistencia==='si').length;
+async function deleteRespuesta(guestId){
+  const res = await fetch('/api/rsvps', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify({ guest_id: guestId })
+  });
+  if(!res.ok){
+    const data = await res.json().catch(()=>({}));
+    showToast(data.error || 'No se pudo eliminar la respuesta.');
+  }
+  return res.ok;
 }
 
 /* ─── RENDER ─── */
-let currentFilter = 'all';
-let currentSearch = '';
-let pendingDeleteId = null;
+function esc(str){ return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 async function renderAll(){
-  const rsvps = await getRsvps();
-  if(!Array.isArray(rsvps)) return;
+  try{
+    currentStats = await getStats();
+  } catch(e){ return; }
+  if(!currentStats) return;
 
-  /* Stats */
-  const attending = countAttending(rsvps);
-  const notAtt    = rsvps.filter(r=>r.asistencia==='no').length;
-  const remaining = Math.max(0, MAX_GUESTS - attending);
-  const pct       = Math.min(100, Math.round(attending / MAX_GUESTS * 100));
+  const MAX = currentStats.max_guests || 100;
+  const attending = currentStats.personas_confirmadas;
+  const remaining = Math.max(0, MAX - attending);
+  const pct = Math.min(100, Math.round(attending / MAX * 100));
 
-  document.getElementById('s-yes').textContent       = attending;
-  document.getElementById('s-no').textContent        = notAtt;
-  document.getElementById('s-total').textContent     = rsvps.length;
-  document.getElementById('s-remaining').textContent = remaining;
-  document.getElementById('cap-pct').textContent     = pct + '%';
-  document.getElementById('cap-fill').style.width    = pct + '%';
+  document.getElementById('s-yes').textContent        = currentStats.confirmados;
+  document.getElementById('s-people-yes').textContent = attending;
+  document.getElementById('s-no').textContent         = currentStats.no_asistira;
+  document.getElementById('s-pending').textContent    = currentStats.pendientes;
+  document.getElementById('s-remaining').textContent  = remaining;
+  document.getElementById('s-cap-sub').textContent    = 'de ' + MAX + ' máximo';
+  document.getElementById('cap-pct').textContent      = pct + '%';
+  document.getElementById('cap-fill').style.width     = pct + '%';
 
   /* Filter + search */
-  let filtered = rsvps;
-  if(currentFilter !== 'all') filtered = filtered.filter(r=>r.asistencia===currentFilter);
+  let registros = currentStats.registros || [];
+  if(currentFilter === 'confirmado') registros = registros.filter(r=>r.estado==='confirmado');
+  else if(currentFilter === 'no_asiste') registros = registros.filter(r=>r.estado==='no_asiste');
+  else if(currentFilter === 'pendiente') registros = registros.filter(r=>r.estado!=='confirmado' && r.estado!=='no_asiste');
+
   if(currentSearch){
     const q = currentSearch.toLowerCase();
-    filtered = filtered.filter(r=>
+    registros = registros.filter(r=>
       (r.nombre||'').toLowerCase().includes(q) ||
-      (r.telefono||'').toLowerCase().includes(q) ||
-      (r.acompanante_nombre||'').toLowerCase().includes(q)
+      (r.telefono||'').toLowerCase().includes(q)
     );
   }
 
@@ -650,14 +627,16 @@ async function renderAll(){
   const empty = document.getElementById('empty-state');
   tbody.innerHTML = '';
 
-  if(filtered.length === 0){
+  if(registros.length === 0){
     empty.style.display = 'block';
     return;
   }
   empty.style.display = 'none';
 
-  filtered.forEach((r, idx) => {
+  registros.forEach((r, idx) => {
     const date = r.fecha ? new Date(r.fecha).toLocaleDateString('es-DO',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+    const estado = r.estado === 'confirmado' ? 'yes' : r.estado === 'no_asiste' ? 'no' : 'pending';
+    const label  = r.estado === 'confirmado' ? 'Asistirá' : r.estado === 'no_asiste' ? 'No asistirá' : 'Pendiente';
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td style="color:var(--text-soft);font-size:.72rem;">${idx+1}</td>
@@ -665,38 +644,37 @@ async function renderAll(){
         <div class="td-name">${esc(r.nombre||'—')}</div>
       </td>
       <td class="td-phone">${esc(r.telefono||'—')}</td>
+      <td style="font-size:.75rem;color:var(--text-soft);">${r.cantidad_personas||1}</td>
       <td>
-        <span class="badge badge-${r.asistencia==='si'?'yes':'no'}">
+        <span class="badge badge-${estado}">
           <span class="badge-dot"></span>
-          ${r.asistencia==='si' ? 'Asistirá' : 'No asistirá'}
+          ${label}
         </span>
       </td>
       <td style="font-size:.74rem;color:var(--text-soft);max-width:200px;word-break:break-word;">${esc(r.mensaje||'—')}</td>
       <td class="td-date">${date}</td>
       <td>
-        <button class="del-btn" data-id="${r.id}">
+        ${r.estado==='confirmado' || r.estado==='no_asiste' ? `
+        <button class="del-btn" data-guest="${r.id}">
           <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-          Eliminar
-        </button>
+          Anular
+        </button>` : ''}
       </td>
     `;
     tbody.appendChild(tr);
   });
 
-  /* Delete events */
   tbody.querySelectorAll('.del-btn').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      pendingDeleteId = parseInt(btn.dataset.id);
+      pendingDeleteGuestId = parseInt(btn.dataset.guest, 10);
       const row = btn.closest('tr');
       const nombre = row.querySelector('.td-name')?.textContent || 'este registro';
       document.getElementById('dialog-msg').textContent =
-        `¿Eliminar a "${nombre}" de la lista de confirmaciones?`;
+        `¿Anular la respuesta de "${nombre}"? El invitado volverá a estado pendiente y podrá responder nuevamente desde su enlace personal.`;
       document.getElementById('confirm-dialog').classList.add('show');
     });
   });
 }
-
-function esc(str){ return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 /* ─── FILTERS ─── */
 document.querySelectorAll('.filter-btn').forEach(btn=>{
@@ -715,28 +693,29 @@ document.getElementById('search-input').addEventListener('input', e=>{
 /* ─── DELETE ─── */
 document.getElementById('dialog-cancel').addEventListener('click', ()=>{
   document.getElementById('confirm-dialog').classList.remove('show');
-  pendingDeleteId = null;
+  pendingDeleteGuestId = null;
 });
 document.getElementById('dialog-confirm').addEventListener('click', async ()=>{
-  if(pendingDeleteId === null) return;
-  const rsvps = (await getRsvps()).filter(r=>r.id !== pendingDeleteId);
-  await saveRsvps(rsvps);
-  pendingDeleteId = null;
+  if(pendingDeleteGuestId === null) return;
+  const ok = await deleteRespuesta(pendingDeleteGuestId);
+  pendingDeleteGuestId = null;
   document.getElementById('confirm-dialog').classList.remove('show');
-  showToast('Registro eliminado correctamente.');
-  renderAll();
+  if(ok){ showToast('Respuesta anulada. El invitado puede volver a responder.'); renderAll(); }
 });
 
 /* ─── EXPORT CSV ─── */
 document.getElementById('export-btn').addEventListener('click', async ()=>{
-  const rsvps = await getRsvps();
-  if(rsvps.length===0){ showToast('No hay registros para exportar.'); return; }
-  const header = ['#','Nombre','Telefono','Asistencia','Mensaje','Fecha'];
-  const rows = rsvps.map((r,i)=>[
+  if(!currentStats || !currentStats.registros || currentStats.registros.length===0){
+    showToast('No hay registros para exportar.');
+    return;
+  }
+  const header = ['#','Nombre','Telefono','Personas','Respuesta','Mensaje','Fecha'];
+  const rows = currentStats.registros.map((r,i)=>[
     i+1,
     `"${(r.nombre||'').replace(/"/g,'""')}"`,
     `"${(r.telefono||'').replace(/"/g,'""')}"`,
-    r.asistencia==='si' ? 'Si' : 'No',
+    r.cantidad_personas||1,
+    r.estado==='confirmado' ? 'Si' : r.estado==='no_asiste' ? 'No' : 'Pendiente',
     `"${(r.mensaje||'').replace(/"/g,'""')}"`,
     r.fecha ? new Date(r.fecha).toLocaleString('es-DO') : ''
   ]);
@@ -763,33 +742,25 @@ function showToast(msg){
 document.getElementById('confirm-dialog').addEventListener('click', e=>{
   if(e.target === document.getElementById('confirm-dialog')){
     document.getElementById('confirm-dialog').classList.remove('show');
-    pendingDeleteId = null;
+    pendingDeleteGuestId = null;
   }
 });
 
-/* ─── Auto-refresh every 30 seconds ─── */
-setInterval(()=>{ renderAll(); }, 30000);
+/* ─── Auto-refresh every 30 seconds (solo si hay sesión) ─── */
+setInterval(()=>{ if(loginScreen.style.display === 'none') renderAll(); }, 30000);
 
 (async function boot(){
-  await syncLocalRsvps();
-  await renderAll();
+  try {
+    const res = await fetch('/api/guests?action=session', { credentials:'same-origin' });
+    const s = await res.json();
+    if(s.authenticated){
+      loginScreen.style.display = 'none';
+      await renderAll();
+    }
+  } catch(e){ /* login visible */ }
 })();
 
-window.addEventListener('focus', ()=>{ renderAll(); });
-
-/* ─── Shareable link ─── */
-(function(){
-  var base = location.href.replace('admin.html','index.html').split('?')[0];
-  var link = base + '?inv=BodaStarlinReneisy2026';
-  var el   = document.getElementById('share-link');
-  if(el) el.textContent = link;
-
-  document.getElementById('copy-link-btn').addEventListener('click', function(){
-    navigator.clipboard.writeText(link).then(function(){
-      showToast('Enlace de invitación copiado.');
-    });
-  });
-})();
+window.addEventListener('focus', ()=>{ if(loginScreen.style.display === 'none') renderAll(); });
 
 })();
 </script>

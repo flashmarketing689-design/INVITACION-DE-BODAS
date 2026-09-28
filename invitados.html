@@ -51,6 +51,7 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
 .login-box input:focus{border-color:var(--green);}
 .login-btn{width:100%;padding:.95rem;background:linear-gradient(135deg,var(--green),#3D5E3F);color:var(--white);font-family:'Poppins',sans-serif;font-size:.78rem;font-weight:500;letter-spacing:.14em;text-transform:uppercase;border-radius:12px;border:none;cursor:pointer;box-shadow:0 6px 20px rgba(90,122,92,.3);transition:transform .25s,box-shadow .25s;}
 .login-btn:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(90,122,92,.4);}
+.login-btn:disabled{opacity:.6;transform:none;}
 .login-error{font-size:.74rem;color:var(--red);margin-top:.8rem;display:none;}
 .login-error.show{display:block;}
 
@@ -138,13 +139,15 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
 .cat-line{flex:1;height:1px;background:rgba(90,122,92,.1);}
 
 /* ─── CARDS GRID ─── */
-.cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(265px,1fr));gap:1rem;}
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;}
 
 /* ─── GUEST CARD ─── */
 .guest-card{background:var(--white);border-radius:18px;padding:1.3rem;box-shadow:var(--shadow);border:1px solid rgba(90,122,92,.09);transition:transform .2s,box-shadow .2s;display:flex;flex-direction:column;gap:.9rem;}
 .guest-card:hover{transform:translateY(-3px);box-shadow:0 8px 30px rgba(38,26,20,.13);}
 .card-top{display:flex;align-items:flex-start;gap:.9rem;}
-.avatar{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:600;color:var(--white);flex-shrink:0;letter-spacing:.03em;}
+.avatar{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:600;color:var(--white);flex-shrink:0;letter-spacing:.03em;position:relative;}
+.avatar .avatar-badge{position:absolute;bottom:-4px;right:-4px;width:16px;height:16px;border-radius:50%;border:2px solid var(--white);display:flex;align-items:center;justify-content:center;}
+.avatar .avatar-badge svg{width:8px;height:8px;fill:var(--white);}
 .card-info{flex:1;min-width:0;}
 .card-name{font-weight:600;font-size:.88rem;color:var(--text);margin-bottom:.3rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .card-badges{display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:.35rem;}
@@ -155,6 +158,11 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
 .card-phone{display:flex;align-items:center;gap:.45rem;font-size:.73rem;color:var(--text-soft);padding:.5rem .7rem;background:var(--ivory);border-radius:8px;}
 .card-phone svg{width:13px;height:13px;fill:var(--green-l);flex-shrink:0;}
 .card-notes{font-size:.7rem;color:var(--text-soft);font-style:italic;padding:.4rem .7rem;background:rgba(201,168,76,.07);border-left:2px solid rgba(201,168,76,.3);border-radius:4px;}
+.card-rsvp{font-size:.72rem;padding:.5rem .7rem;border-radius:8px;display:flex;align-items:center;gap:.45rem;}
+.card-rsvp svg{width:13px;height:13px;fill:currentColor;flex-shrink:0;}
+.card-rsvp.confirmado{background:rgba(90,122,92,.1);color:var(--green);}
+.card-rsvp.no_asiste{background:var(--red-pale);color:var(--red);}
+.card-rsvp.pendiente{background:var(--ivory);color:var(--text-soft);}
 
 /* ─── TOGGLE ─── */
 .card-toggle{display:flex;align-items:center;gap:.6rem;padding:.6rem .8rem;border-radius:10px;background:var(--ivory);}
@@ -169,19 +177,30 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
 .switch input:disabled+.slider{opacity:.5;cursor:default;}
 
 /* ─── CARD ACTIONS ─── */
-.card-actions{display:flex;gap:.5rem;padding-top:.4rem;border-top:1px solid rgba(90,122,92,.08);}
-.act-btn{flex:1;padding:.45rem;border-radius:8px;font-family:'Poppins',sans-serif;font-size:.65rem;font-weight:500;cursor:pointer;border:1.5px solid;display:flex;align-items:center;justify-content:center;gap:.3rem;transition:all .2s;letter-spacing:.04em;}
-.act-btn svg{width:12px;height:12px;fill:currentColor;}
+.card-actions{display:flex;gap:.5rem;padding-top:.4rem;border-top:1px solid rgba(90,122,92,.08);flex-wrap:wrap;}
+.act-btn{flex:1;min-width:72px;padding:.45rem .5rem;border-radius:8px;font-family:'Poppins',sans-serif;font-size:.65rem;font-weight:500;cursor:pointer;border:1.5px solid;display:flex;align-items:center;justify-content:center;gap:.3rem;transition:all .2s;letter-spacing:.04em;white-space:nowrap;}
+.act-btn svg{width:12px;height:12px;fill:currentColor;flex-shrink:0;}
+.act-link{background:rgba(201,168,76,.09);color:#A88530;border-color:rgba(201,168,76,.25);}
+.act-link:hover{background:var(--gold);color:var(--white);border-color:var(--gold);}
+.act-wa{background:rgba(37,211,102,.09);color:#1D9E4F;border-color:rgba(37,211,102,.28);}
+.act-wa:hover{background:#25D366;color:var(--white);border-color:#25D366;}
 .act-edit{background:rgba(90,122,92,.07);color:var(--green);border-color:rgba(90,122,92,.2);}
 .act-edit:hover{background:var(--green);color:var(--white);border-color:var(--green);}
 .act-del{background:var(--red-pale);color:var(--red);border-color:rgba(192,80,74,.2);}
 .act-del:hover{background:var(--red);color:var(--white);border-color:var(--red);}
+.act-btn:disabled{opacity:.55;cursor:wait;}
 
 /* ─── EMPTY STATE ─── */
 .empty-section{text-align:center;padding:2.5rem 1rem;background:var(--white);border-radius:16px;border:1.5px dashed rgba(90,122,92,.18);}
 .empty-section svg{width:48px;height:48px;fill:var(--green-pale);margin-bottom:.8rem;}
 .empty-section h4{font-family:'Cormorant Garamond',serif;font-size:1.2rem;color:var(--text);margin-bottom:.3rem;}
 .empty-section p{font-size:.75rem;color:var(--text-soft);}
+
+/* ─── MIGRATION BANNER ─── */
+.migrate-banner{background:linear-gradient(135deg,rgba(201,168,76,.12),rgba(201,168,76,.05));border:1px solid rgba(201,168,76,.3);border-radius:16px;padding:1rem 1.4rem;margin-bottom:1.5rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;}
+.migrate-banner svg{width:20px;height:20px;fill:var(--gold);flex-shrink:0;}
+.migrate-text{flex:1;min-width:200px;font-size:.76rem;color:var(--text-soft);line-height:1.55;}
+.migrate-text strong{color:var(--text);}
 
 /* ─── MODAL ─── */
 #modal-overlay{position:fixed;inset:0;z-index:8000;background:rgba(38,26,20,.45);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s;padding:1rem;}
@@ -207,6 +226,14 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
 .modal-cancel:hover{background:var(--ivory-dark);}
 .modal-save{flex:2;padding:.85rem;background:linear-gradient(135deg,var(--green),#3D5E3F);color:var(--white);border:none;border-radius:12px;font-family:'Poppins',sans-serif;font-size:.76rem;font-weight:500;cursor:pointer;letter-spacing:.08em;text-transform:uppercase;box-shadow:0 6px 18px rgba(90,122,92,.3);transition:transform .2s,box-shadow .2s;}
 .modal-save:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(90,122,92,.38);}
+.modal-save:disabled{opacity:.6;transform:none;}
+
+/* ─── LINK MODAL ─── */
+.link-modal-code{background:var(--ivory);border:1.5px dashed rgba(90,122,92,.3);border-radius:12px;padding:1rem 1.1rem;font-size:.8rem;color:var(--text);word-break:break-all;line-height:1.6;user-select:all;}
+.link-modal-actions{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:1.2rem;}
+.link-modal-actions .btn-sm{flex:1;justify-content:center;min-width:120px;}
+.link-warn{font-size:.7rem;color:var(--text-soft);margin-top:1.1rem;padding-top:1rem;border-top:1px solid rgba(90,122,92,.1);line-height:1.6;}
+.link-warn strong{color:var(--red);}
 
 /* ─── CONFIRM DIALOG ─── */
 #confirm-dialog{position:fixed;inset:0;z-index:9000;background:rgba(38,26,20,.45);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s;}
@@ -219,7 +246,7 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
 .dialog-confirm{flex:1;padding:.8rem;background:var(--red);color:var(--white);border:none;border-radius:10px;font-family:'Poppins',sans-serif;font-size:.76rem;font-weight:500;cursor:pointer;}
 
 /* ─── TOAST ─── */
-#toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--text);color:var(--white);padding:.7rem 1.6rem;border-radius:50px;font-size:.76rem;white-space:nowrap;box-shadow:0 8px 28px rgba(0,0,0,.2);transition:transform .3s;z-index:9500;}
+#toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--text);color:var(--white);padding:.7rem 1.6rem;border-radius:50px;font-size:.76rem;white-space:nowrap;box-shadow:0 8px 28px rgba(0,0,0,.2);transition:transform .3s;z-index:9500;max-width:90vw;overflow:hidden;text-overflow:ellipsis;}
 #toast.show{transform:translateX(-50%) translateY(0);}
 
 /* ─── RESPONSIVE ─── */
@@ -287,12 +314,25 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
 <!-- ══ MAIN ══ -->
 <main class="main">
 
+  <!-- Migration banner (se muestra si hay datos legacy en localStorage) -->
+  <div class="migrate-banner" id="migrate-banner" style="display:none">
+    <svg viewBox="0 0 24 24"><path d="M7 2l9 2v6c0 5.55-3.84 10.74-9 12-5.16-1.26-9-6.45-9-12V4l9-2zm0 10.99h5V11H7v1.99zM7 9h5V7H7v2z" transform="translate(5 0)"/></svg>
+    <div class="migrate-text">
+      Encontramos <strong id="migrate-count">0</strong> invitado(s) guardados localmente en este navegador.
+      Pulsa <strong>Migrar ahora</strong> para subirlos a Supabase con su enlace único. No se perderán ni duplicarán.
+    </div>
+    <button class="btn-sm btn-gold" id="migrate-btn">
+      <svg viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></svg>
+      <span>Migrar ahora</span>
+    </button>
+  </div>
+
   <!-- Stats -->
   <div class="stats" id="stats-row">
     <div class="stat-card dark"><div class="stat-label">Total invitados</div><div class="stat-value" id="s-total">0</div><div class="stat-sub">registros</div></div>
-    <div class="stat-card green"><div class="stat-label">Invitados del novio</div><div class="stat-value" id="s-novio">0</div><div class="stat-sub">personas</div></div>
-    <div class="stat-card gold"><div class="stat-label">Invitados de la novia</div><div class="stat-value" id="s-novia">0</div><div class="stat-sub">personas</div></div>
-    <div class="stat-card green" style="--c:var(--green)"><div class="stat-label">Invitaciones enviadas</div><div class="stat-value" id="s-sent">0</div><div class="stat-sub">confirmadas</div></div>
+    <div class="stat-card green"><div class="stat-label">Del novio</div><div class="stat-value" id="s-novio">0</div><div class="stat-sub">personas</div></div>
+    <div class="stat-card gold"><div class="stat-label">De la novia</div><div class="stat-value" id="s-novia">0</div><div class="stat-sub">personas</div></div>
+    <div class="stat-card green"><div class="stat-label">Enviadas</div><div class="stat-value" id="s-sent">0</div><div class="stat-sub">invitaciones</div></div>
     <div class="stat-card red"><div class="stat-label">Pendientes de envío</div><div class="stat-value" id="s-pending">0</div><div class="stat-sub">por enviar</div></div>
     <div class="stat-card purple"><div class="stat-label">Total de personas</div><div class="stat-value" id="s-people">0</div><div class="stat-sub">incluyendo grupos</div></div>
   </div>
@@ -312,8 +352,10 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
     </div>
     <div class="filter-group" id="status-filters">
       <button class="f-btn active" data-status="all">Todos</button>
-      <button class="f-btn" data-status="pending">Pendientes</button>
-      <button class="f-btn" data-status="sent">Enviados</button>
+      <button class="f-btn" data-status="pendiente">Pendientes</button>
+      <button class="f-btn" data-status="enviada">Enviados</button>
+      <button class="f-btn" data-status="confirmado">Confirmados</button>
+      <button class="f-btn" data-status="no_asiste">No asistirán</button>
     </div>
   </div>
 
@@ -326,7 +368,6 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
 
   <!-- Content -->
   <div id="content">
-    <!-- Novio section -->
     <div class="owner-section" id="section-novio">
       <div class="owner-header novio">
         <div class="owner-icon"><svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></div>
@@ -339,7 +380,6 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
       <div id="cats-novio"></div>
     </div>
 
-    <!-- Novia section -->
     <div class="owner-section" id="section-novia">
       <div class="owner-header novia">
         <div class="owner-icon"><svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></div>
@@ -355,7 +395,7 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
 
 </main>
 
-<!-- ══ MODAL ══ -->
+<!-- ══ MODAL INVITADO ══ -->
 <div id="modal-overlay" role="dialog" aria-modal="true" aria-label="Invitado">
   <div class="modal-box">
     <div class="modal-header">
@@ -425,10 +465,49 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
   </div>
 </div>
 
+<!-- ══ MODAL ENLACE PERSONAL ══ -->
+<div id="link-overlay" role="dialog" aria-modal="true" aria-label="Enlace de invitación">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="link-modal-title">Invitación personal</div>
+      <button class="modal-close" id="link-close-btn" aria-label="Cerrar">&times;</button>
+    </div>
+    <p style="font-size:.76rem;color:var(--text-soft);margin-bottom:1rem;line-height:1.6">
+      Enlace exclusivo de <strong id="link-modal-name"></strong>. Solo esta persona puede abrir su invitación con este enlace.
+    </p>
+    <div class="link-modal-code" id="link-modal-code"></div>
+    <div class="link-modal-actions">
+      <button class="btn-sm btn-green" id="link-copy-btn">
+        <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+        <span>Copiar</span>
+      </button>
+      <a class="btn-sm btn-outline" id="link-open-btn" target="_blank" rel="noopener noreferrer" style="text-decoration:none">
+        <svg viewBox="0 0 24 24"><path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>
+        <span>Abrir</span>
+      </a>
+      <button class="btn-sm btn-gold" id="link-wa-btn">
+        <svg viewBox="0 0 24 24"><path d="M16.75 13.96c-.25-.13-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.13-.17.25-.64.81-.78.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-1.99-1.23-.74-.66-1.23-1.47-1.38-1.72-.15-.25-.02-.38.11-.51.11-.11.25-.29.37-.43s.17-.25.25-.41c.08-.17.04-.31-.02-.43s-.56-1.34-.76-1.84c-.2-.48-.41-.42-.56-.43h-.48c-.17 0-.43.06-.66.31-.22.25-.86.85-.86 2.07 0 1.22.89 2.4 1.01 2.56.12.17 1.75 2.67 4.23 3.74.59.26 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.67-1.18.21-.58.21-1.07.15-1.18-.07-.1-.23-.16-.48-.29zm-4.75 8.04C7.1 22 2 16.91 2 10.99 2 5.08 7.1 0 12 0s10 5.08 10 10.99c0 5.92-5.1 11.01-10 11.01z"/></svg>
+        <span>WhatsApp</span>
+      </button>
+    </div>
+    <div class="link-warn">
+      Si alguna vez necesitas invalidar este enlace (por ejemplo, si se compartió por error),
+      usa <strong>Regenerar enlace</strong>: el enlace anterior dejará de funcionar de inmediato
+      y se creará uno nuevo. Tendrás que reenviar el nuevo a esta persona.
+    </div>
+    <div class="modal-footer">
+      <button class="modal-cancel" id="link-regen-btn" style="flex:1;color:var(--red);border-color:rgba(192,80,74,.3)">
+        <span>Regenerar enlace</span>
+      </button>
+      <button class="modal-save" id="link-done-btn" style="flex:1">Listo</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ CONFIRM DIALOG ══ -->
 <div id="confirm-dialog" role="dialog" aria-modal="true">
   <div class="dialog-box">
-    <h3>Eliminar invitado</h3>
+    <h3 id="dialog-title">Eliminar invitado</h3>
     <p id="dialog-msg">¿Confirmas que deseas eliminar este invitado?</p>
     <div class="dialog-actions">
       <button class="dialog-cancel" id="dialog-cancel">Cancelar</button>
@@ -444,8 +523,11 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
 (function(){
 'use strict';
 
-const STORAGE_KEY = 'boda_sr_invitados';
-const PASSWORD    = 'StarRen2026';
+/* ============================================================
+   ESTADO Y CONFIGURACIÓN
+============================================================ */
+const LEGACY_KEY = 'boda_sr_invitados';   // clave legacy de localStorage
+const MIGRATED_KEY = 'boda_sr_invitados_migrated';
 
 const CATS = [
   { id:'familiares', label:'Familiares',            color:'#5A7A5C', bg:'rgba(90,122,92,.12)'  },
@@ -454,51 +536,193 @@ const CATS = [
   { id:'iglesia',    label:'Hermanos de la Iglesia',color:'#4A7AAD', bg:'rgba(74,122,173,.12)' },
 ];
 
-/* ─── LOGIN ─── */
+const RSVP_LABELS = {
+  pendiente:  'Sin respuesta',
+  confirmado: 'Confirmó asistencia',
+  no_asiste:  'No asistirá',
+};
+
+let guests = [];          // fuente de verdad: /api/guests (Supabase)
+let currentOwner  = 'all';
+let currentCat    = 'all';
+let currentStatus = 'all';
+let currentSearch = '';
+let editingId = null;
+let linkModalGuestId = null;
+
+/* ============================================================
+   LOGIN (contraseña verificada en el servidor · cookie HttpOnly)
+============================================================ */
 const loginScreen = document.getElementById('login-screen');
 const pwdInput    = document.getElementById('pwd-input');
 const loginBtn    = document.getElementById('login-btn');
 const loginError  = document.getElementById('login-error');
 
-function tryLogin(){
-  if(pwdInput.value === PASSWORD){
-    loginScreen.classList.add('hide');
-    setTimeout(()=>{ loginScreen.style.display='none'; }, 500);
-    renderAll();
-  } else {
+async function tryLogin(){
+  loginBtn.disabled = true;
+  try {
+    const res = await fetch('/api/guests?action=login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ password: pwdInput.value })
+    });
+    if (res.ok) {
+      sessionStorage.removeItem('boda_admin_view');
+      await enterApp();
+    } else {
+      loginError.classList.add('show');
+      pwdInput.style.borderColor = '#C0504A';
+      setTimeout(()=>{ loginError.classList.remove('show'); pwdInput.style.borderColor=''; }, 2500);
+    }
+  } catch(e) {
+    loginError.textContent = 'No se pudo conectar con el servidor.';
     loginError.classList.add('show');
-    pwdInput.style.borderColor = '#C0504A';
-    setTimeout(()=>{ loginError.classList.remove('show'); pwdInput.style.borderColor=''; }, 2500);
+  } finally {
+    loginBtn.disabled = false;
   }
 }
-loginBtn.addEventListener('click', tryLogin);
-pwdInput.addEventListener('keydown', e=>{ if(e.key==='Enter') tryLogin(); });
-document.getElementById('logout-btn').addEventListener('click', ()=>{ location.reload(); });
 
-/* ─── DATA ─── */
-function getGuests(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); }catch(e){ return []; } }
-function saveGuests(data){ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
-
-/* ─── FILTERS STATE ─── */
-let currentOwner  = 'all';
-let currentCat    = 'all';
-let currentStatus = 'all';
-let currentSearch = '';
-
-/* ─── RENDER ALL ─── */
-function renderAll(){
-  const guests = getGuests();
-  renderStats(guests);
-  renderSections(guests);
+async function enterApp(){
+  loginScreen.classList.add('hide');
+  setTimeout(()=>{ loginScreen.style.display='none'; }, 500);
+  await loadGuests();
+  maybeShowMigrationBanner();
+  renderAll();
 }
 
-/* ─── STATS ─── */
-function renderStats(guests){
+loginBtn.addEventListener('click', tryLogin);
+pwdInput.addEventListener('keydown', e=>{ if(e.key==='Enter') tryLogin(); });
+document.getElementById('logout-btn').addEventListener('click', async ()=>{
+  try { await fetch('/api/guests?action=logout', { method:'POST', credentials:'same-origin' }); } catch(e){}
+  location.reload();
+});
+
+/* ============================================================
+   API (Supabase vía serverless · sin localStorage)
+============================================================ */
+async function api(path, options = {}){
+  const res = await fetch(path, {
+    credentials: 'same-origin',
+    headers: options.body ? { 'Content-Type': 'application/json' } : undefined,
+    ...options,
+  });
+  if (res.status === 401) throw Object.assign(new Error('No autorizado'), { code: 401 });
+  const data = await res.json().catch(()=> ({}));
+  if (!res.ok) throw Object.assign(new Error(data.error || 'Error de servidor'), { code: res.status });
+  return data;
+}
+
+async function loadGuests(){
+  try {
+    guests = await api('/api/guests');
+    if (!Array.isArray(guests)) guests = [];
+  } catch(e) {
+    if (e.code === 401) { location.reload(); return; }
+    guests = [];
+    showToast('No se pudo cargar la lista: ' + e.message);
+  }
+}
+
+function guestLink(g){
+  const base = location.origin + location.pathname.replace('invitados.html','index.html');
+  return base.split('?')[0] + '?guest=' + g.token;
+}
+
+function whatsappMessage(g){
+  // Personalizable: edita estas líneas para cambiar el texto del mensaje.
+  const link = guestLink(g);
+  return [
+    `Hola ${g.nombre.split(' ')[0]} 👋`,
+    '',
+    'Queremos compartir contigo nuestra invitación de boda. Nos haría mucha ilusión contar contigo en este día tan importante para nosotros.',
+    '',
+    'Tu invitación personal:',
+    link,
+    '',
+    'Por favor, entra en tu invitación y confírmanos si podrás acompañarnos. 🤍',
+    '',
+    'Starlin & Reneisy'
+  ].join('\n');
+}
+
+function whatsappUrl(g){
+  const phone = (g.telefono || '').replace(/[^\d]/g, '');
+  const text  = encodeURIComponent(whatsappMessage(g));
+  return phone
+    ? `https://wa.me/${phone}?text=${text}`
+    : `https://wa.me/?text=${text}`;
+}
+
+/* ============================================================
+   MIGRACIÓN localStorage → SUPABASE (una vez, sin duplicar)
+============================================================ */
+function readLegacy(){
+  try {
+    const raw = JSON.parse(localStorage.getItem(LEGACY_KEY) || '[]');
+    return Array.isArray(raw) ? raw : [];
+  } catch { return []; }
+}
+
+function maybeShowMigrationBanner(){
+  const legacy = readLegacy();
+  if (localStorage.getItem(MIGRATED_KEY) === '1' || legacy.length === 0) return;
+  document.getElementById('migrate-count').textContent = legacy.length;
+  document.getElementById('migrate-banner').style.display = 'flex';
+}
+
+document.getElementById('migrate-btn').addEventListener('click', async ()=>{
+  const legacy = readLegacy();
+  if (!legacy.length) return;
+  const btn = document.getElementById('migrate-btn');
+  btn.disabled = true;
+  try {
+    await api('/api/guests?import=1', {
+      method: 'POST',
+      body: JSON.stringify({ guests: legacy }),
+    });
+    localStorage.setItem(MIGRATED_KEY, '1');
+    localStorage.removeItem(LEGACY_KEY);
+    document.getElementById('migrate-banner').style.display = 'none';
+    await loadGuests();
+    renderAll();
+    showToast(legacy.length + ' invitado(s) migrados a Supabase con enlace único.');
+  } catch(e) {
+    showToast('No se pudo migrar: ' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+/* ============================================================
+   RENDER
+============================================================ */
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function getInitials(name){
+  const parts = (name||'').trim().split(/\s+/);
+  if(parts.length >= 2) return (parts[0][0]+(parts[1][0]||'')).toUpperCase();
+  return (name||'?').substring(0,2).toUpperCase();
+}
+
+function effectiveState(g){
+  if (g.estado_rsvp === 'confirmado') return 'confirmado';
+  if (g.estado_rsvp === 'no_asiste')  return 'no_asiste';
+  if (g.invitacion_enviada)           return 'enviada';
+  return 'pendiente';
+}
+
+function renderAll(){
+  renderStats();
+  renderSections();
+}
+
+function renderStats(){
   const novio   = guests.filter(g=>g.pertenece==='novio');
   const novia   = guests.filter(g=>g.pertenece==='novia');
-  const sent    = guests.filter(g=>g.enviada);
-  const pending = guests.filter(g=>!g.enviada);
-  const people  = guests.reduce((s,g)=>s+(parseInt(g.cantidad)||1), 0);
+  const sent    = guests.filter(g=>g.invitacion_enviada);
+  const pending = guests.filter(g=>!g.invitacion_enviada);
+  const people  = guests.reduce((s,g)=>s+(parseInt(g.cantidad_personas)||1), 0);
 
   document.getElementById('s-total').textContent   = guests.length;
   document.getElementById('s-novio').textContent   = novio.length;
@@ -508,8 +732,7 @@ function renderStats(guests){
   document.getElementById('s-people').textContent  = people;
 }
 
-/* ─── RENDER SECTIONS ─── */
-function renderSections(guests){
+function renderSections(){
   let filtered = guests;
 
   if(currentSearch){
@@ -517,37 +740,40 @@ function renderSections(guests){
     filtered = filtered.filter(g=>(g.nombre||'').toLowerCase().includes(q) || (g.telefono||'').toLowerCase().includes(q));
   }
   if(currentCat !== 'all') filtered = filtered.filter(g=>g.categoria===currentCat);
-  if(currentStatus === 'sent')    filtered = filtered.filter(g=>g.enviada);
-  if(currentStatus === 'pending') filtered = filtered.filter(g=>!g.enviada);
+  if(currentStatus !== 'all'){
+    filtered = filtered.filter(g=>{
+      const st = effectiveState(g);
+      if (currentStatus === 'pendiente') return st === 'pendiente' || st === 'enviada';
+      return st === currentStatus;
+    });
+  }
 
   const novioGuests = filtered.filter(g=>g.pertenece==='novio');
   const noviaGuests = filtered.filter(g=>g.pertenece==='novia');
 
-  /* Owner section visibility */
   const sNovio = document.getElementById('section-novio');
   const sNovia = document.getElementById('section-novia');
   sNovio.classList.toggle('hidden', currentOwner==='novia');
   sNovia.classList.toggle('hidden', currentOwner==='novio');
 
-  /* Counts */
   const nNovio = guests.filter(g=>g.pertenece==='novio');
   const nNovia = guests.filter(g=>g.pertenece==='novia');
   document.getElementById('count-novio').textContent =
-    nNovio.length + ' invitados · ' + nNovio.reduce((s,g)=>s+(parseInt(g.cantidad)||1),0) + ' personas';
+    nNovio.length + ' invitados · ' + nNovio.reduce((s,g)=>s+(parseInt(g.cantidad_personas)||1),0) + ' personas';
   document.getElementById('count-novia').textContent =
-    nNovia.length + ' invitados · ' + nNovia.reduce((s,g)=>s+(parseInt(g.cantidad)||1),0) + ' personas';
+    nNovia.length + ' invitados · ' + nNovia.reduce((s,g)=>s+(parseInt(g.cantidad_personas)||1),0) + ' personas';
 
   renderOwnerCats('novio', novioGuests);
   renderOwnerCats('novia', noviaGuests);
 }
 
-function renderOwnerCats(owner, guests){
+function renderOwnerCats(owner, list){
   const container = document.getElementById('cats-'+owner);
   container.innerHTML = '';
   let anyVisible = false;
 
   CATS.forEach(cat=>{
-    const catGuests = guests.filter(g=>g.categoria===cat.id);
+    const catGuests = list.filter(g=>g.categoria===cat.id);
     if(catGuests.length === 0) return;
     anyVisible = true;
 
@@ -577,16 +803,25 @@ function renderOwnerCats(owner, guests){
   }
 }
 
-/* ─── CREATE CARD ─── */
+/* ─── CARD ─── */
 function createCard(g, cat){
   if(!cat) cat = CATS.find(c=>c.id===g.categoria) || CATS[0];
-  const initials = getInitials(g.nombre);
-  const cantidad = parseInt(g.cantidad)||1;
-  const sentDate = g.fecha_enviada ? new Date(g.fecha_enviada).toLocaleDateString('es-DO',{day:'2-digit',month:'short'}) : '';
+  const initials  = getInitials(g.nombre);
+  const cantidad  = parseInt(g.cantidad_personas)||1;
+  const sentDate  = g.fecha_invitacion_enviada ? new Date(g.fecha_invitacion_enviada).toLocaleDateString('es-DO',{day:'2-digit',month:'short'}) : '';
+  const st        = effectiveState(g);
+  const hasPhone  = Boolean(g.telefono);
 
   const card = document.createElement('div');
   card.className = 'guest-card';
   card.dataset.id = g.id;
+
+  const rsvpClass = st === 'confirmado' ? 'confirmado' : st === 'no_asiste' ? 'no_asiste' : 'pendiente';
+  const rsvpIcon  = st === 'confirmado'
+    ? '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>'
+    : st === 'no_asiste'
+      ? '<svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>'
+      : '<svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zm.01 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>';
 
   card.innerHTML = `
     <div class="card-top">
@@ -604,16 +839,26 @@ function createCard(g, cat){
       </div>
     </div>
     ${g.telefono ? `<div class="card-phone"><svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>${esc(g.telefono)}</div>` : ''}
+    <div class="card-rsvp ${rsvpClass}">${rsvpIcon}${RSVP_LABELS[st] || RSVP_LABELS.pendiente}</div>
     ${g.notas ? `<div class="card-notes">${esc(g.notas)}</div>` : ''}
     <div class="card-toggle">
       <span class="toggle-label">Invitación enviada</span>
       <label class="switch">
-        <input type="checkbox" class="sent-toggle" data-id="${g.id}" ${g.enviada?'checked':''} />
+        <input type="checkbox" class="sent-toggle" data-id="${g.id}" ${g.invitacion_enviada?'checked':''} />
         <span class="slider"></span>
       </label>
       ${sentDate ? `<span class="sent-date">${sentDate}</span>` : ''}
     </div>
     <div class="card-actions">
+      <button class="act-btn act-link" data-id="${g.id}" title="Ver y copiar enlace personal">
+        <svg viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>
+        Invitación
+      </button>
+      ${hasPhone ? `
+      <button class="act-btn act-wa" data-id="${g.id}" title="Enviar por WhatsApp">
+        <svg viewBox="0 0 24 24"><path d="M16.75 13.96c-.25-.13-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.13-.17.25-.64.81-.78.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-1.99-1.23-.74-.66-1.23-1.47-1.38-1.72-.15-.25-.02-.38.11-.51.11-.11.25-.29.37-.43s.17-.25.25-.41c.08-.17.04-.31-.02-.43s-.56-1.34-.76-1.84c-.2-.48-.41-.42-.56-.43h-.48c-.17 0-.43.06-.66.31-.22.25-.86.85-.86 2.07 0 1.22.89 2.4 1.01 2.56.12.17 1.75 2.67 4.23 3.74.59.26 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.67-1.18.21-.58.21-1.07.15-1.18-.07-.1-.23-.16-.48-.29zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg>
+        WhatsApp
+      </button>` : ''}
       <button class="act-btn act-edit" data-id="${g.id}">
         <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
         Editar
@@ -625,41 +870,154 @@ function createCard(g, cat){
     </div>
   `;
 
-  /* Toggle sent */
+  /* Toggle enviado */
   card.querySelector('.sent-toggle').addEventListener('change', e=>{
     e.stopPropagation();
     toggleSent(g.id, e.target.checked);
   });
-  /* Edit */
+  /* Enlace personal */
+  card.querySelector('.act-link').addEventListener('click', ()=>{ openLinkModal(g.id); });
+  /* WhatsApp */
+  const waBtn = card.querySelector('.act-wa');
+  if (waBtn) waBtn.addEventListener('click', ()=>{ sendWhatsApp(g.id); });
+  /* Editar */
   card.querySelector('.act-edit').addEventListener('click', ()=>{ openModal(g.id); });
-  /* Delete */
+  /* Eliminar */
   card.querySelector('.act-del').addEventListener('click', ()=>{ confirmDelete(g.id, g.nombre); });
 
   return card;
 }
 
-/* ─── HELPERS ─── */
-function getInitials(name){
-  const parts = (name||'').trim().split(/\s+/);
-  if(parts.length >= 2) return (parts[0][0]+(parts[1][0]||'')).toUpperCase();
-  return (name||'?').substring(0,2).toUpperCase();
+/* ============================================================
+   ACCIONES: ENLACE · WHATSAPP · ENVIADA
+============================================================ */
+async function toggleSent(id, value){
+  try {
+    const updated = await api('/api/guests', {
+      method: 'PATCH',
+      body: JSON.stringify({ action:'marcar_enviada', guest_id: id, value })
+    });
+    const idx = guests.findIndex(g=>g.id===id);
+    if (idx !== -1) guests[idx] = updated;
+    renderAll();
+    showToast(value ? 'Invitación marcada como enviada.' : 'Marcada como pendiente.');
+  } catch(e) {
+    showToast('No se pudo actualizar: ' + e.message);
+    renderAll();
+  }
 }
-function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-/* ─── TOGGLE SENT ─── */
-function toggleSent(id, value){
-  const guests = getGuests();
-  const g = guests.find(x=>x.id==id);
-  if(!g) return;
-  g.enviada = value;
-  g.fecha_enviada = value ? new Date().toISOString() : null;
-  saveGuests(guests);
-  renderAll();
-  showToast(value ? 'Invitación marcada como enviada.' : 'Marcada como pendiente.');
+function openLinkModal(id){
+  const g = guests.find(x=>x.id===id);
+  if (!g) return;
+  linkModalGuestId = id;
+  document.getElementById('link-modal-name').textContent = g.nombre;
+  document.getElementById('link-modal-code').textContent = guestLink(g);
+  document.getElementById('link-open-btn').href = guestLink(g);
+  const waBtn = document.getElementById('link-wa-btn');
+  waBtn.style.display = g.telefono ? '' : 'none';
+  document.getElementById('link-overlay').classList.add('show');
 }
 
-/* ─── MODAL ─── */
-let editingId = null;
+function closeLinkModal(){
+  document.getElementById('link-overlay').classList.remove('show');
+  linkModalGuestId = null;
+}
+
+document.getElementById('link-close-btn').addEventListener('click', closeLinkModal);
+document.getElementById('link-done-btn').addEventListener('click', closeLinkModal);
+document.getElementById('link-overlay').addEventListener('click', e=>{ if(e.target.id==='link-overlay') closeLinkModal(); });
+
+async function copyToClipboard(text){
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    // Fallback para WebView antiguos / HTTP no seguro
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0;';
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch(e) {}
+    document.body.removeChild(ta);
+    return ok;
+  }
+}
+
+document.getElementById('link-copy-btn').addEventListener('click', async ()=>{
+  const g = guests.find(x=>x.id===linkModalGuestId);
+  if (!g) return;
+  const ok = await copyToClipboard(guestLink(g));
+  showToast(ok ? 'Enlace copiado. Listo para enviar.' : 'No se pudo copiar; cópialo manualmente.');
+});
+
+document.getElementById('link-wa-btn').addEventListener('click', ()=>{
+  const g = guests.find(x=>x.id===linkModalGuestId);
+  if (!g) return;
+  window.open(whatsappUrl(g), '_blank');
+});
+
+document.getElementById('link-regen-btn').addEventListener('click', ()=>{
+  const g = guests.find(x=>x.id===linkModalGuestId);
+  if (!g) return;
+  showConfirm(
+    'Regenerar enlace',
+    `¿Regenerar el enlace de "${g.nombre}"? El enlace actual dejará de funcionar y deberás enviarle el nuevo.`,
+    'Regenerar',
+    async ()=>{
+      try {
+        const updated = await api('/api/guests', {
+          method: 'PATCH',
+          body: JSON.stringify({ action:'regenerar_token', guest_id: g.id })
+        });
+        const idx = guests.findIndex(x=>x.id===g.id);
+        if (idx !== -1) guests[idx] = updated;
+        openLinkModal(g.id);
+        renderAll();
+        showToast('Enlace regenerado. El anterior ya no funciona.');
+      } catch(e) {
+        showToast('No se pudo regenerar: ' + e.message);
+      }
+    }
+  );
+});
+
+function sendWhatsApp(id){
+  const g = guests.find(x=>x.id===id);
+  if (!g) return;
+  // Abrir WhatsApp también marca la invitación como enviada si aún no lo está.
+  window.open(whatsappUrl(g), '_blank');
+  if (!g.invitacion_enviada) toggleSent(id, true);
+}
+
+/* ============================================================
+   CONFIRM DIALOG genérico
+============================================================ */
+const confirmDialog = document.getElementById('confirm-dialog');
+let confirmAction = null;
+
+function showConfirm(title, msg, confirmLabel, action){
+  document.getElementById('dialog-title').textContent = title;
+  document.getElementById('dialog-msg').textContent = msg;
+  document.getElementById('dialog-confirm').textContent = confirmLabel;
+  confirmAction = action;
+  confirmDialog.classList.add('show');
+}
+
+document.getElementById('dialog-cancel').addEventListener('click', ()=>{
+  confirmDialog.classList.remove('show');
+  confirmAction = null;
+});
+document.getElementById('dialog-confirm').addEventListener('click', async ()=>{
+  confirmDialog.classList.remove('show');
+  if (confirmAction) { const fn = confirmAction; confirmAction = null; await fn(); }
+});
+
+/* ============================================================
+   MODAL CREAR/EDITAR
+============================================================ */
 const overlay    = document.getElementById('modal-overlay');
 const mTitle     = document.getElementById('modal-title');
 const fNombre    = document.getElementById('f-nombre');
@@ -668,20 +1026,21 @@ const fCategoria = document.getElementById('f-categoria');
 const fCantidad  = document.getElementById('f-cantidad');
 const fTelefono  = document.getElementById('f-telefono');
 const fNotas     = document.getElementById('f-notas');
+const saveBtn    = document.getElementById('modal-save-btn');
 
 function openModal(id){
   editingId = id || null;
-  const g = id ? getGuests().find(x=>x.id==id) : null;
+  const g = id ? guests.find(x=>x.id===id) : null;
 
   mTitle.textContent = g ? 'Editar invitado' : 'Agregar invitado';
   fNombre.value    = g ? g.nombre    : '';
   fPertenece.value = g ? g.pertenece : '';
   fCategoria.value = g ? g.categoria : '';
-  fCantidad.value  = g ? g.cantidad  : '';
+  fCantidad.value  = g ? g.cantidad_personas  : '';
   fTelefono.value  = g ? (g.telefono||'') : '';
   fNotas.value     = g ? (g.notas||'')    : '';
 
-  ['mg-nombre','mg-pertenece','mg-categoria','mg-cantidad'].forEach(id=>{ document.getElementById(id).classList.remove('error'); });
+  ['mg-nombre','mg-pertenece','mg-categoria','mg-cantidad'].forEach(mgId=>{ document.getElementById(mgId).classList.remove('error'); });
   overlay.classList.add('show');
   fNombre.focus();
 }
@@ -691,7 +1050,7 @@ function closeModal(){
   editingId = null;
 }
 
-function saveGuest(){
+async function saveGuest(){
   const nombre    = fNombre.value.trim();
   const pertenece = fPertenece.value;
   const categoria = fCategoria.value;
@@ -711,49 +1070,67 @@ function saveGuest(){
 
   if(!valid) return;
 
-  const guests = getGuests();
-  if(editingId){
-    const idx = guests.findIndex(g=>g.id==editingId);
-    if(idx !== -1){
-      guests[idx] = { ...guests[idx], nombre, pertenece, categoria, cantidad:parseInt(cantidad), telefono:fTelefono.value.trim(), notas:fNotas.value.trim() };
+  saveBtn.disabled = true;
+  const payload = {
+    nombre,
+    pertenece,
+    categoria,
+    cantidad_personas: parseInt(cantidad, 10),
+    telefono: fTelefono.value.trim(),
+    notas: fNotas.value.trim(),
+  };
+
+  try {
+    if (editingId) {
+      const updated = await api('/api/guests', { method:'PUT', body: JSON.stringify({ ...payload, id: editingId }) });
+      const idx = guests.findIndex(g=>g.id===editingId);
+      if (idx !== -1) guests[idx] = updated;
+      showToast('Invitado actualizado correctamente.');
+    } else {
+      const created = await api('/api/guests', { method:'POST', body: JSON.stringify(payload) });
+      guests.push(created);
+      showToast('Invitado creado con su enlace único.');
     }
-  } else {
-    guests.push({ id:Date.now(), nombre, pertenece, categoria, cantidad:parseInt(cantidad), telefono:fTelefono.value.trim(), notas:fNotas.value.trim(), enviada:false, fecha_enviada:null, fecha:new Date().toISOString() });
+    closeModal();
+    renderAll();
+  } catch(e) {
+    showToast('No se pudo guardar: ' + e.message);
+  } finally {
+    saveBtn.disabled = false;
   }
-  saveGuests(guests);
-  closeModal();
-  renderAll();
-  showToast(editingId ? 'Invitado actualizado correctamente.' : 'Invitado agregado correctamente.');
 }
 
 document.getElementById('add-btn').addEventListener('click', ()=>openModal(null));
-document.getElementById('modal-save-btn').addEventListener('click', saveGuest);
+saveBtn.addEventListener('click', saveGuest);
 document.getElementById('modal-cancel-btn').addEventListener('click', closeModal);
 document.getElementById('modal-close-btn').addEventListener('click', closeModal);
 overlay.addEventListener('click', e=>{ if(e.target===overlay) closeModal(); });
-document.addEventListener('keydown', e=>{ if(e.key==='Escape' && overlay.classList.contains('show')) closeModal(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closeModal(); closeLinkModal(); } });
 
-/* ─── DELETE ─── */
-let pendingDeleteId = null;
-const confirmDialog = document.getElementById('confirm-dialog');
-
+/* ============================================================
+   ELIMINAR
+============================================================ */
 function confirmDelete(id, nombre){
-  pendingDeleteId = id;
-  document.getElementById('dialog-msg').textContent = `¿Eliminar a "${nombre}" de la lista de invitados? Esta acción no se puede deshacer.`;
-  confirmDialog.classList.add('show');
+  showConfirm(
+    'Eliminar invitado',
+    `¿Eliminar a "${nombre}" de la lista de invitados? Su enlace personal y su confirmación se eliminarán también. Esta acción no se puede deshacer.`,
+    'Eliminar',
+    async ()=>{
+      try {
+        await api('/api/guests', { method:'DELETE', body: JSON.stringify({ id }) });
+        guests = guests.filter(g=>g.id!==id);
+        renderAll();
+        showToast('Invitado eliminado correctamente.');
+      } catch(e) {
+        showToast('No se pudo eliminar: ' + e.message);
+      }
+    }
+  );
 }
-document.getElementById('dialog-cancel').addEventListener('click', ()=>{ confirmDialog.classList.remove('show'); pendingDeleteId=null; });
-document.getElementById('dialog-confirm').addEventListener('click', ()=>{
-  if(pendingDeleteId===null) return;
-  const guests = getGuests().filter(g=>g.id!==pendingDeleteId);
-  saveGuests(guests);
-  pendingDeleteId=null;
-  confirmDialog.classList.remove('show');
-  renderAll();
-  showToast('Invitado eliminado correctamente.');
-});
 
-/* ─── FILTERS ─── */
+/* ============================================================
+   FILTROS
+============================================================ */
 document.querySelectorAll('[data-cat]').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('[data-cat]').forEach(b=>b.classList.remove('active'));
@@ -783,22 +1160,24 @@ document.getElementById('search-input').addEventListener('input', e=>{
   renderAll();
 });
 
-/* ─── EXPORT CSV ─── */
+/* ============================================================
+   EXPORT CSV
+============================================================ */
 document.getElementById('export-btn').addEventListener('click', ()=>{
-  const guests = getGuests();
   if(!guests.length){ showToast('No hay invitados para exportar.'); return; }
-  const header = ['#','Nombre','Pertenece','Categoría','Cantidad','Teléfono','Enviada','Fecha Envío','Notas','Fecha Registro'];
+  const header = ['#','Nombre','Pertenece','Categoría','Cantidad','Teléfono','Enviada','Fecha Envío','Estado RSVP','Enlace personal','Notas'];
   const rows = guests.map((g,i)=>[
     i+1,
     `"${(g.nombre||'').replace(/"/g,'""')}"`,
     g.pertenece==='novio'?'Novio':'Novia',
     CATS.find(c=>c.id===g.categoria)?.label||g.categoria,
-    g.cantidad||1,
+    g.cantidad_personas||1,
     `"${(g.telefono||'').replace(/"/g,'""')}"`,
-    g.enviada?'Sí':'No',
-    g.fecha_enviada ? new Date(g.fecha_enviada).toLocaleString('es-DO') : '',
-    `"${(g.notas||'').replace(/"/g,'""')}"`,
-    g.fecha ? new Date(g.fecha).toLocaleString('es-DO') : ''
+    g.invitacion_enviada?'Sí':'No',
+    g.fecha_invitacion_enviada ? new Date(g.fecha_invitacion_enviada).toLocaleString('es-DO') : '',
+    RSVP_LABELS[effectiveState(g)] || '',
+    `"${guestLink(g)}"`,
+    `"${(g.notas||'').replace(/"/g,'""')}"`
   ]);
   const csv = [header,...rows].map(r=>r.join(',')).join('\r\n');
   const a = document.createElement('a');
@@ -808,15 +1187,30 @@ document.getElementById('export-btn').addEventListener('click', ()=>{
   showToast('Lista exportada correctamente.');
 });
 
-/* ─── TOAST ─── */
+/* ============================================================
+   TOAST
+============================================================ */
 let toastTimer;
 function showToast(msg){
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(()=>t.classList.remove('show'), 3000);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 3200);
 }
+
+/* ============================================================
+   BOOT: ¿sesión activa?
+============================================================ */
+(async function boot(){
+  try {
+    const s = await api('/api/guests?action=session');
+    if (s.authenticated) {
+      pwdInput.value = '';
+      await enterApp();
+    }
+  } catch(e) { /* pantalla de login visible */ }
+})();
 
 })();
 </script>

@@ -136,6 +136,24 @@ body {
   opacity: 0; animation: fadeUp .7s 1.35s forwards;
 }
 .w-private svg { width: 11px; height: 11px; fill: var(--green); flex-shrink: 0; }
+.w-guest-eyebrow {
+  font-size: .58rem; letter-spacing: .34em; text-transform: uppercase;
+  color: var(--text-soft); margin-top: 2.1rem;
+  opacity: 0; animation: fadeUp .8s 1.28s forwards;
+}
+.w-guest-name {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(1.5rem, 5.4vw, 2.6rem);
+  font-weight: 500; font-style: italic;
+  color: var(--gold-dark); line-height: 1.15;
+  margin-top: .45rem; max-width: 90vw;
+  opacity: 0; animation: fadeUp .9s 1.4s forwards;
+}
+.w-guest-capacity {
+  font-size: .6rem; letter-spacing: .24em; text-transform: uppercase;
+  color: var(--green); margin-top: .55rem;
+  opacity: 0; animation: fadeUp .8s 1.52s forwards;
+}
 .w-btn {
   margin-top: 2.6rem;
   padding: .95rem 3.2rem;
@@ -662,7 +680,64 @@ section {
   font-family: 'Cormorant Garamond', serif;
   font-size: 1.9rem; color: var(--text);
 }
-.success-msg p { font-size: .82rem; color: var(--text-soft); margin-top: .5rem; }
+.success-msg p { font-size: .82rem; color: var(--text-soft); margin-top: .5rem; line-height: 1.7; }
+.success-msg.declined h3 { color: var(--text-soft); }
+
+/* ─── RSVP personalized guest header ─── */
+.rsvp-guest-note {
+  text-align: center;
+  margin-bottom: 1.8rem;
+  padding: 1.15rem 1.3rem;
+  background: linear-gradient(155deg, rgba(214,229,212,.4), rgba(242,228,196,.28));
+  border: 1px solid rgba(90,122,92,.16);
+  border-radius: 16px;
+}
+.rsvp-guest-note .rgn-eyebrow {
+  font-size: .56rem; letter-spacing: .3em; text-transform: uppercase;
+  color: var(--text-soft);
+}
+.rsvp-guest-note .rgn-name {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(1.5rem, 4.6vw, 2rem);
+  font-weight: 600; color: var(--green);
+  line-height: 1.2; margin-top: .3rem;
+}
+.rsvp-guest-note .rgn-sub {
+  font-size: .74rem; color: var(--text-soft); line-height: 1.65; margin-top: .45rem;
+}
+.rsvp-guest-note .rgn-capacity {
+  display: inline-flex; align-items: center; gap: .4rem;
+  margin-top: .75rem;
+  padding: .35rem 1rem;
+  background: rgba(90,122,92,.09);
+  border: 1px solid rgba(90,122,92,.2);
+  border-radius: 50px;
+  font-size: .6rem; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--green);
+}
+.rsvp-guest-note .rgn-capacity svg { width: 11px; height: 11px; fill: var(--green); flex-shrink: 0; }
+.rsvp-guest-note .rgn-status {
+  display: inline-flex; align-items: center; gap: .4rem;
+  margin-top: .75rem; margin-left: .4rem;
+  padding: .35rem 1rem;
+  border-radius: 50px;
+  font-size: .6rem; letter-spacing: .16em; text-transform: uppercase;
+}
+.rsvp-guest-note .rgn-status.confirmado { background: rgba(90,122,92,.12); color: var(--green); }
+.rsvp-guest-note .rgn-status.no_asiste  { background: rgba(192,80,74,.12);  color: #C0705A; }
+
+/* Cambiar respuesta */
+.rsvp-guest-actions { text-align: center; margin-top: 1.5rem; }
+.change-answer-btn {
+  background: none; border: none; cursor: pointer;
+  font-family: 'Poppins', sans-serif;
+  font-size: .72rem; font-weight: 500; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--green);
+  padding: .6rem 1.2rem;
+  border-bottom: 1px solid rgba(90,122,92,.35);
+  transition: color .25s, border-color .25s;
+}
+.change-answer-btn:hover { color: var(--gold-dark); border-color: var(--gold); }
 
 /* ─── RSVP LIMIT ─── */
 .rsvp-limit-msg {
@@ -681,11 +756,6 @@ section {
   margin-top: 1.3rem; padding-top: 1.1rem;
   border-top: 1px solid rgba(90,122,92,.13);
 }
-.rsvp-field-err {
-  font-size: .68rem; color: #C0705A; margin-top: .35rem; display: none;
-}
-.rsvp-field-err.show { display: block; }
-
 /* ─── PRIVATE NOTICE banner ─── */
 .private-notice {
   background: rgba(90,122,92,.07);
@@ -1080,6 +1150,11 @@ section {
     </h1>
     <div class="w-line"></div>
     <p class="w-date">21 · XI · 2026 &nbsp;&middot;&nbsp; Anamuya</p>
+    <div id="w-guest" style="display:none">
+      <p class="w-guest-eyebrow">Tenemos el honor de invitar a</p>
+      <p class="w-guest-name" id="w-guest-name"></p>
+      <p class="w-guest-capacity" id="w-guest-capacity"></p>
+    </div>
     <span class="w-private">
       <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
       Invitación privada · No transferible
@@ -1176,7 +1251,7 @@ section {
   <svg class="fc fc-tl" viewBox="0 0 200 200" fill="none" aria-hidden="true">
     <path d="M10,190 C50,100 100,50 190,10" stroke="#5A7A5C" stroke-width="1" opacity=".6"/>
     <ellipse cx="55" cy="135" rx="8" ry="20" fill="#8AAD8C" opacity=".55" transform="rotate(-38 55 135)"/>
-    <ellipse cx="40" cy="155" rx="7" ry="16" fill="#5A7A5C" opacity=".45" transform="-52 40 155)"/>
+    <ellipse cx="40" cy="155" rx="7" ry="16" fill="#5A7A5C" opacity=".45" transform="rotate(-52 40 155)"/>
     <ellipse cx="80" cy="105" rx="12" ry="20" fill="rgba(245,218,218,.7)" transform="rotate(-20 80 105)"/>
     <ellipse cx="68" cy="100" rx="10" ry="18" fill="rgba(255,230,230,.65)" transform="rotate(-42 68 100)"/>
     <ellipse cx="92" cy="96"  rx="10" ry="18" fill="rgba(255,230,230,.62)" transform="rotate(2 92 96)"/>
@@ -1532,6 +1607,24 @@ section {
     <p class="s-sub reveal d2">Por favor confirma tu asistencia antes del <strong>1 de octubre de 2026</strong>.</p>
 
     <div class="rsvp-box reveal d3">
+      <!-- Encabezado personalizado del invitado -->
+      <div class="rsvp-guest-note" id="rsvp-guest-note" style="display:none">
+        <div class="rgn-eyebrow">Invitación personal de</div>
+        <div class="rgn-name" id="rgn-name"></div>
+        <div class="rgn-sub" id="rgn-sub"></div>
+        <div>
+          <span class="rgn-capacity">
+            <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+            <span id="rgn-capacity-text"></span>
+          </span>
+          <span class="rgn-status" id="rgn-status" style="display:none"></span>
+        </div>
+      </div>
+
+      <div class="rsvp-guest-actions" id="rsvp-guest-actions" style="display:none">
+        <button type="button" class="change-answer-btn" id="change-answer-btn">Cambiar mi respuesta</button>
+      </div>
+
       <!-- Limit reached state -->
       <div class="rsvp-limit-msg" id="limit-msg" style="display:none">
         <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
@@ -1549,31 +1642,23 @@ section {
             <path d="M16 28l8 8 16-16" stroke="#5A7A5C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </div>
-        <h3>Gracias por confirmar</h3>
-        <p>Hemos recibido tu respuesta.<br>Nos vemos el 21 de noviembre.</p>
+        <h3 id="success-title">Gracias por confirmar</h3>
+        <p id="success-text">Hemos recibido tu respuesta.<br>Nos vemos el 21 de noviembre.</p>
+        <div class="rsvp-guest-actions" id="success-change-wrap" style="display:none">
+          <button type="button" class="change-answer-btn" id="success-change-btn">Cambiar mi respuesta</button>
+        </div>
       </div>
 
       <form id="rsvp-form" novalidate onsubmit="event.preventDefault(); return false;">
-        <div class="f-row">
-          <div class="f-group">
-            <label for="nombre">Nombre completo <span style="color:#C0705A">*</span></label>
-            <input type="text" id="nombre" name="nombre" placeholder="Tu nombre y apellido" required autocomplete="name" />
-            <p class="rsvp-field-err" id="err-nombre">Por favor ingresa tu nombre y apellido completos.</p>
-          </div>
-          <div class="f-group">
-            <label for="telefono">Teléfono</label>
-            <input type="tel" id="telefono" name="telefono" placeholder="+1 809 000 0000" autocomplete="tel" />
-          </div>
-        </div>
         <div class="f-group">
           <label>Asistencia</label>
           <div class="rsvp-opts">
             <div class="rsvp-opt">
-              <input type="radio" name="asistencia" id="r-si" value="si" required />
+              <input type="radio" name="asistencia" id="r-si" value="confirmado" required />
               <label for="r-si">Asistiré con gusto</label>
             </div>
             <div class="rsvp-opt">
-              <input type="radio" name="asistencia" id="r-no" value="no" />
+              <input type="radio" name="asistencia" id="r-no" value="no_asiste" />
               <label for="r-no">No podré asistir</label>
             </div>
           </div>
@@ -1718,150 +1803,187 @@ document.querySelectorAll('.copy-btn').forEach(btn=>{
   });
 });
 
-/* ─── RSVP ─── */
-const STORAGE_KEY = 'boda_sr_rsvps';
-const UPDATE_SIGNAL_KEY = `${STORAGE_KEY}_updated`;
-const MAX_GUESTS  = 100;
-
-function signalRsvpChange(){
-  try {
-    localStorage.setItem(UPDATE_SIGNAL_KEY, String(Date.now()));
-  } catch (e) {}
-}
-
-async function syncLocalRsvps(){
-  const localEntries = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-  if(!Array.isArray(localEntries) || localEntries.length === 0) return;
-  if(localStorage.getItem(`${STORAGE_KEY}_synced`) === '1') return;
-
-  try{
-    const res = await fetch('/api/rsvps', { cache: 'no-store' });
-    const serverEntries = res.ok ? await res.json() : [];
-    const serverIds = new Set((Array.isArray(serverEntries) ? serverEntries : []).map(e => e.id));
-    const toUpload = localEntries.filter(e => !serverIds.has(e.id));
-
-    for(const entry of toUpload){
-      await fetch('/api/rsvps', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(entry)
-      });
-    }
-
-    localStorage.setItem(`${STORAGE_KEY}_synced`, '1');
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([...serverEntries, ...toUpload]));
-    signalRsvpChange();
-  } catch(e){}
-}
-
-async function getRsvps(){
-  await syncLocalRsvps();
-  try{
-    const res = await fetch('/api/rsvps', { cache: 'no-store' });
-    if(res.ok){
-      const data = await res.json();
-      if(Array.isArray(data)){
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-        return data;
-      }
-    }
-  } catch(e){}
-  try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); }catch(e){ return []; }
-}
-
-async function saveRsvpEntry(entry){
-  try{
-    const res = await fetch('/api/rsvps', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(entry)
-    });
-    if(res.ok){
-      const saved = await res.json();
-      const current = await getRsvps();
-      const merged = [...current, saved];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-      signalRsvpChange();
-      return saved;
-    }
-  } catch(e){}
-  const current = await getRsvps();
-  const merged = [...current, entry];
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-  signalRsvpChange();
-  return entry;
-}
-
-async function countAttending(){
-  return (await getRsvps()).filter(r=>r.asistencia==='si').length;
-}
+/* ─── RSVP personalizado (token único por invitado) ─── */
+const guestToken = new URLSearchParams(location.search).get('guest');
 
 const form    = document.getElementById('rsvp-form');
 const success = document.getElementById('success-msg');
 const limitMsg= document.getElementById('limit-msg');
-const rsvpBox = document.querySelector('.rsvp-box');
+const guestNote = document.getElementById('rsvp-guest-note');
+const guestActions = document.getElementById('rsvp-guest-actions');
+const successChangeWrap = document.getElementById('success-change-wrap');
 const submitBtn = form?.querySelector('.submit-btn');
 
-(async function initLimit(){
-  await syncLocalRsvps();
-  if(!form) return;
-  countAttending().then(count=>{
-    if(count >= MAX_GUESTS){
-      form.style.display='none';
-      limitMsg.style.display='block';
+let currentGuest = null;      /* { nombre, cantidad_personas, estado_rsvp, fecha_rsvp } */
+let isChangingAnswer = false;
+let guestLoadFailed = false;
+
+function pluralize(n){ n = parseInt(n) || 1; return n === 1 ? '1 persona' : n + ' personas'; }
+
+async function fetchGuest(){
+  if(!guestToken) return;
+  try{
+    const res = await fetch('/api/guest?token=' + encodeURIComponent(guestToken), { cache: 'no-store' });
+    if(res.ok){
+      const data = await res.json();
+      if(data && data.found){ currentGuest = data.guest; return; }
     }
-  });
-})();
+    guestLoadFailed = false; /* token inválido: comportamiento de sin-token */
+  } catch(e){
+    guestLoadFailed = true;  /* error de red: avisar y permitir reintentar */
+  }
+}
+
+function applyGuestToWelcome(g){
+  const wrap = document.getElementById('w-guest');
+  if(!wrap) return;
+  document.getElementById('w-guest-name').textContent = g.nombre;
+  document.getElementById('w-guest-capacity').textContent = 'Invitación válida para ' + pluralize(g.cantidad_personas);
+  wrap.style.display = '';
+  const openBtn = document.getElementById('open-btn');
+  if(openBtn) openBtn.textContent = 'Abrir mi Invitación';
+}
+
+function showNotice(title, text){
+  form.style.display = 'none';
+  guestNote.style.display = 'none';
+  guestActions.style.display = 'none';
+  success.style.display = 'none';
+  limitMsg.style.display = 'block';
+  limitMsg.querySelector('h3').textContent = title;
+  limitMsg.querySelector('p').innerHTML = text;
+}
+
+function renderRsvp(){
+  if(!form) return;
+
+  /* Token inválido o error de red → aviso controlado (no revela nada) */
+  if(guestToken && guestLoadFailed){
+    showNotice('No pudimos verificar tu invitación', 'Revisa tu conexión a internet e <a href="javascript:location.reload()" style="color:var(--green);font-weight:500">intenta de nuevo</a>.');
+    return;
+  }
+
+  /* Sin token válido → la invitación es personal: sin formulario genérico */
+  if(!currentGuest){
+    showNotice('Invitación personal', 'Cada invitación es personal e intransferible.<br>Si recibiste tu enlace por WhatsApp, ábrelo desde ahí para confirmar tu asistencia.<br>Si no lo tienes, comunícate directamente con Starlin o Reneisy.');
+    return;
+  }
+
+  limitMsg.style.display = 'none';
+  success.style.display = '';
+  success.classList.remove('show','declined');
+
+  /* Encabezado personalizado */
+  const answered = currentGuest.estado_rsvp === 'confirmado' || currentGuest.estado_rsvp === 'no_asiste';
+  guestNote.style.display = 'block';
+  document.getElementById('rgn-name').textContent = currentGuest.nombre;
+  document.getElementById('rgn-capacity-text').textContent = 'Invitación válida para ' + pluralize(currentGuest.cantidad_personas);
+
+  const statusEl = document.getElementById('rgn-status');
+  if(answered && !isChangingAnswer){
+    statusEl.textContent = currentGuest.estado_rsvp === 'confirmado' ? '✓ Asistencia confirmada' : 'Nos indicaste que no asistirás';
+    statusEl.className = 'rgn-status ' + currentGuest.estado_rsvp;
+    statusEl.style.display = '';
+  } else {
+    statusEl.style.display = 'none';
+  }
+
+  document.getElementById('rgn-sub').textContent = answered
+    ? 'Necesitamos tu reconfirmación: indícanos si tu respuesta sigue siendo la misma.'
+    : 'Necesitamos tu reconfirmación: por favor indícanos si podremos contar contigo en este día tan especial.';
+
+  /* Identidad bloqueada: nombre y teléfono vienen del servidor, no se editan */
+  const idRow = form.querySelector('.f-row');
+  if(idRow) idRow.style.display = 'none';
+
+  /* ¿Formulario o respuesta actual? */
+  if(answered && !isChangingAnswer){
+    form.style.display = 'none';
+    guestActions.style.display = 'none';
+    successChangeWrap.style.display = '';
+    success.classList.add('show');
+    if(currentGuest.estado_rsvp === 'confirmado'){
+      success.querySelector('h3').textContent = 'Gracias por confirmar';
+      success.querySelector('p').innerHTML = 'Hemos registrado tu asistencia, ' + esc(currentGuest.nombre.split(' ')[0]) + '.<br>Nos vemos el 21 de noviembre. 🤍';
+    } else {
+      success.classList.add('declined');
+      success.querySelector('h3').textContent = 'Gracias por avisarnos';
+      success.querySelector('p').innerHTML = 'Lamentamos que no puedas acompañarnos.<br>Te agradecemos mucho habernoslo comunicado. 🤍';
+    }
+  } else {
+    form.style.display = '';
+    successChangeWrap.style.display = 'none';
+    /* Preseleccionar respuesta anterior al cambiar */
+    const prev = form.querySelector('input[name="asistencia"][value="' + (currentGuest.estado_rsvp === 'no_asiste' ? 'no_asiste' : 'confirmado') + '"]');
+    if(isChangingAnswer && prev){ prev.checked = true; }
+    /* Botón de cancelar cuando viene de una respuesta previa */
+    guestActions.style.display = answered ? 'block' : 'none';
+    const changeBtn = document.getElementById('change-answer-btn');
+    if(answered){
+      changeBtn.textContent = 'Volver sin cambios';
+      changeBtn.onclick = ()=>{ isChangingAnswer = false; renderRsvp(); };
+    }
+  }
+}
+
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+document.getElementById('success-change-btn').addEventListener('click', ()=>{
+  isChangingAnswer = true;
+  renderRsvp();
+  form.scrollIntoView({ behavior:'smooth', block:'center' });
+});
 
 form.addEventListener('submit', async e=>{
   e.preventDefault();
-  const nombre = form.nombre.value.trim();
-  const errNombre = document.getElementById('err-nombre');
+  if(!currentGuest){ return; }
 
-  if(!nombre || nombre.split(/\s+/).filter(Boolean).length < 2){
-    form.nombre.style.borderColor='#C0705A';
-    errNombre.classList.add('show');
-    form.nombre.focus();
-    return;
-  }
-  errNombre.classList.remove('show');
-  form.nombre.style.borderColor='';
-
-  const asistencia = (form.querySelector('input[name="asistencia"]:checked')||{}).value || 'no';
-
-  /* Re-check limit before saving */
-  const attendingCount = await countAttending();
-  if(asistencia==='si' && attendingCount >= MAX_GUESTS){
-    form.style.display='none';
-    limitMsg.style.display='block';
+  const asistencia = (form.querySelector('input[name="asistencia"]:checked')||{}).value;
+  if(!asistencia){
+    alert('Por favor selecciona si podrás acompañarnos.');
     return;
   }
 
   const btn = submitBtn || form.querySelector('.submit-btn');
-  if(btn){ btn.disabled = true; btn.textContent = 'Enviando…'; }
-  await new Promise(r=>setTimeout(r,900));
+  if(btn){ btn.disabled = true; btn.dataset.label = btn.textContent; btn.textContent = 'Enviando…'; }
 
-  /* Save to shared storage */
-  await saveRsvpEntry({
-    id:         Date.now(),
-    nombre:     nombre,
-    telefono:   form.telefono.value.trim(),
-    asistencia: asistencia,
-    mensaje:    form.mensaje.value.trim(),
-    fecha:      new Date().toISOString()
-  });
+  try{
+    const res = await fetch('/api/rsvps', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token: guestToken,
+        asistencia: asistencia,
+        mensaje: form.mensaje.value.trim()
+      })
+    });
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok){
+      alert(data.error || 'No se pudo registrar tu respuesta. Intenta de nuevo.');
+      return;
+    }
+    currentGuest.estado_rsvp = data.estado;
+    currentGuest.fecha_rsvp  = data.fecha;
+    isChangingAnswer = false;
+    renderRsvp();
+    const successBox = document.getElementById('success-msg');
+    successBox.style.display = '';
+    successBox.classList.add('show');
+    if(successBox.querySelector('.success-icon')) successBox.querySelector('.success-icon').style.animation='bounce .6s ease';
+    successBox.scrollIntoView({ behavior:'smooth', block:'center' });
+  } catch(err){
+    alert('Sin conexión. Por favor intenta de nuevo.');
+  } finally {
+    if(btn){ btn.disabled = false; btn.textContent = btn.dataset.label || 'Confirmar asistencia'; }
+  }
+});
 
-  form.style.display = 'none';
-  success.classList.add('show');
-  if(success.querySelector('.success-icon')) success.querySelector('.success-icon').style.animation='bounce .6s ease';
-  if(btn){ btn.disabled = false; btn.textContent = 'Confirmar asistencia'; }
-});
-document.querySelectorAll('.f-group input').forEach(i=>{
-  i.addEventListener('input',()=>{
-    i.style.borderColor='';
-    if(i.id==='nombre') document.getElementById('err-nombre')?.classList.remove('show');
-  });
-});
+(async function initPersonalizedRsvp(){
+  if(!form) return;
+  await fetchGuest();
+  if(currentGuest) applyGuestToWelcome(currentGuest);
+  renderRsvp();
+})();
 
 /* ─── ICS download ─── */
 window.downloadICS = function(e){

@@ -2,6 +2,9 @@
   "name": "invitacion-boda",
   "version": "1.0.0",
   "private": true,
+  "scripts": {
+    "test": "node --test test/rsvps.test.js"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.50.0",
     "ws": "^8.21.0"
