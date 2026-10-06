@@ -154,6 +154,14 @@ body {
   color: var(--green); margin-top: .55rem;
   opacity: 0; animation: fadeUp .8s 1.52s forwards;
 }
+.w-guest-invalid {
+  max-width: 300px; margin: 1.5rem auto 0;
+  color: #8D5B52; font-size: .72rem; line-height: 1.7;
+}
+.w-guest-invalid strong {
+  display: block; color: var(--text); font-family: 'Cormorant Garamond', serif;
+  font-size: 1.28rem; font-weight: 500; margin-bottom: .15rem;
+}
 .w-btn {
   margin-top: 2.6rem;
   padding: .95rem 3.2rem;
@@ -1155,6 +1163,10 @@ section {
       <p class="w-guest-name" id="w-guest-name"></p>
       <p class="w-guest-capacity" id="w-guest-capacity"></p>
     </div>
+    <div class="w-guest-invalid" id="w-guest-invalid" role="status" aria-live="polite" style="display:none">
+      <strong>No pudimos identificar esta invitación.</strong>
+      Verifica que estés utilizando el enlace que recibiste.
+    </div>
     <span class="w-private">
       <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
       Invitación privada · No transferible
@@ -1804,7 +1816,9 @@ document.querySelectorAll('.copy-btn').forEach(btn=>{
 });
 
 /* ─── RSVP personalizado (token único por invitado) ─── */
-const guestToken = new URLSearchParams(location.search).get('guest');
+const guestParams = new URLSearchParams(location.search);
+const hasGuestToken = guestParams.has('guest');
+const guestToken = (guestParams.get('guest') || '').trim();
 
 const form    = document.getElementById('rsvp-form');
 const success = document.getElementById('success-msg');
@@ -1816,32 +1830,38 @@ const submitBtn = form?.querySelector('.submit-btn');
 
 let currentGuest = null;      /* { nombre, cantidad_personas, estado_rsvp, fecha_rsvp } */
 let isChangingAnswer = false;
-let guestLoadFailed = false;
+let guestLoadState = hasGuestToken ? 'loading' : 'none';
 
 function pluralize(n){ n = parseInt(n) || 1; return n === 1 ? '1 persona' : n + ' personas'; }
 
 async function fetchGuest(){
-  if(!guestToken) return;
+  if(!hasGuestToken) return;
+  if(!guestToken){ guestLoadState = 'invalid'; return; }
   try{
     const res = await fetch('/api/guest?token=' + encodeURIComponent(guestToken), { cache: 'no-store' });
-    if(res.ok){
-      const data = await res.json();
-      if(data && data.found){ currentGuest = data.guest; return; }
-    }
-    guestLoadFailed = false; /* token inválido: comportamiento de sin-token */
+    if(!res.ok){ guestLoadState = 'error'; return; }
+    const data = await res.json();
+    if(data && data.found){ currentGuest = data.guest; guestLoadState = 'valid'; return; }
+    guestLoadState = 'invalid';
   } catch(e){
-    guestLoadFailed = true;  /* error de red: avisar y permitir reintentar */
+    guestLoadState = 'error';
   }
 }
 
 function applyGuestToWelcome(g){
   const wrap = document.getElementById('w-guest');
   if(!wrap) return;
+  document.getElementById('w-guest-invalid').style.display = 'none';
   document.getElementById('w-guest-name').textContent = g.nombre;
   document.getElementById('w-guest-capacity').textContent = 'Invitación válida para ' + pluralize(g.cantidad_personas);
   wrap.style.display = '';
   const openBtn = document.getElementById('open-btn');
   if(openBtn) openBtn.textContent = 'Abrir mi Invitación';
+}
+
+function applyInvalidTokenToWelcome(){
+  const notice = document.getElementById('w-guest-invalid');
+  if(notice) notice.style.display = '';
 }
 
 function showNotice(title, text){
@@ -1858,8 +1878,12 @@ function renderRsvp(){
   if(!form) return;
 
   /* Token inválido o error de red → aviso controlado (no revela nada) */
-  if(guestToken && guestLoadFailed){
-    showNotice('No pudimos verificar tu invitación', 'Revisa tu conexión a internet e <a href="javascript:location.reload()" style="color:var(--green);font-weight:500">intenta de nuevo</a>.');
+  if(guestLoadState === 'error'){
+    showNotice('No pudimos verificar tu invitación', 'Revisa tu conexión a internet y vuelve a intentarlo.');
+    return;
+  }
+  if(guestLoadState === 'invalid'){
+    showNotice('No pudimos identificar esta invitación.', 'Verifica que estés utilizando el enlace que recibiste.');
     return;
   }
 
@@ -1888,9 +1912,10 @@ function renderRsvp(){
     statusEl.style.display = 'none';
   }
 
+  const firstName = currentGuest.nombre.split(/\s+/)[0];
   document.getElementById('rgn-sub').textContent = answered
-    ? 'Necesitamos tu reconfirmación: indícanos si tu respuesta sigue siendo la misma.'
-    : 'Necesitamos tu reconfirmación: por favor indícanos si podremos contar contigo en este día tan especial.';
+    ? `${firstName}, necesitamos tu reconfirmación: indícanos si tu respuesta sigue siendo la misma.`
+    : `${firstName}, necesitamos tu reconfirmación. Por favor, indícanos si podremos contar contigo.`;
 
   /* Identidad bloqueada: nombre y teléfono vienen del servidor, no se editan */
   const idRow = form.querySelector('.f-row');
@@ -1908,7 +1933,7 @@ function renderRsvp(){
     } else {
       success.classList.add('declined');
       success.querySelector('h3').textContent = 'Gracias por avisarnos';
-      success.querySelector('p').innerHTML = 'Lamentamos que no puedas acompañarnos.<br>Te agradecemos mucho habernoslo comunicado. 🤍';
+      success.querySelector('p').innerHTML = 'Gracias por confirmarnos, ' + esc(currentGuest.nombre.split(' ')[0]) + '.<br>Lamentamos que no puedas acompañarnos, pero agradecemos mucho que nos lo hayas comunicado. 🤍';
     }
   } else {
     form.style.display = '';
@@ -1982,6 +2007,7 @@ form.addEventListener('submit', async e=>{
   if(!form) return;
   await fetchGuest();
   if(currentGuest) applyGuestToWelcome(currentGuest);
+  else if(guestLoadState === 'invalid') applyInvalidTokenToWelcome();
   renderRsvp();
 })();
 

@@ -539,6 +539,11 @@ async function tryLogin(){
       setTimeout(()=>{ loginScreen.style.display='none'; }, 500);
       await renderAll();
     } else {
+      loginError.textContent = res.status === 429
+        ? 'Demasiados intentos. Espera un momento y vuelve a probar.'
+        : res.status === 503
+          ? 'El panel no está disponible. Comprueba la configuración del servidor.'
+          : 'Contraseña incorrecta. Intenta de nuevo.';
       loginError.classList.add('show');
       pwdInput.style.borderColor = '#C0504A';
       setTimeout(()=>{ loginError.classList.remove('show'); pwdInput.style.borderColor=''; }, 2500);

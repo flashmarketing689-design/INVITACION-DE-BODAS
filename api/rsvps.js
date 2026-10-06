@@ -15,9 +15,9 @@
 
 const fs = require('fs');
 const path = require('path');
-const { isAdminRequest } = require('./auth');
-const { getGuestByToken } = require('./auth');
-const { supabase, supabaseConfigured } = require('./supabaseClient');
+const { isAdminRequest, getGuestByToken, isSameOriginRequest } = require('../lib/auth');
+const { supabase, supabaseConfigured } = require('../lib/supabaseClient');
+const { allowRequest, clientIp } = require('../lib/rateLimit');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const LOCAL_FILE = path.join(DATA_DIR, 'rsvp_respuestas_local.json');
@@ -49,6 +49,11 @@ function parseBody(body) {
 
 /* ════════════════ POST público: confirmación por token ════════════════ */
 async function handleConfirm(req, res) {
+  if (!allowRequest(`rsvp:${clientIp(req)}`, 30, 60 * 1000)) {
+    res.status(429).json({ error: 'Demasiados intentos. Intenta de nuevo en un momento.' });
+    return;
+  }
+
   const payload = parseBody(req.body);
   const token = String(payload.token || '').trim().toLowerCase();
   const decision = payload.asistencia === 'no_asiste' ? 'no_asiste'
@@ -72,7 +77,7 @@ async function handleConfirm(req, res) {
   const respuesta = {
     guest_id: guest.id,
     estado: decision,
-    telefono: guest.telefono || String(payload.telefono || '').trim().slice(0, 30) || null,
+    telefono: guest.telefono || null,
     mensaje: String(payload.mensaje || '').trim().slice(0, 500) || null,
     fecha_respuesta: new Date().toISOString(),
   };
@@ -102,10 +107,38 @@ async function handleConfirm(req, res) {
   // Fallback local: mismo contrato upsert
   const rows = readLocal();
   const idx = rows.findIndex((r) => r.guest_id === guest.id);
-  const record = { ...respuesta, id: idx >= 0 ? rows[idx].id : rows.reduce((m, r) => Math.max(m, r.id || 0), 0) + 1 };
+  const record = {
+    ...respuesta,
+    id: idx >= 0 ? rows[idx].id : rows.reduce((m, r) => Math.max(m, r.id || 0), 0) + 1,
+    created_at: idx >= 0 ? rows[idx].created_at : new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
   if (idx >= 0) rows[idx] = { ...rows[idx], ...record };
   else rows.push(record);
   writeLocal(rows);
+
+  // Keep the development fallback equivalent to the Supabase sync trigger.
+  const guestsFile = path.join(DATA_DIR, 'guests.json');
+  try {
+    const guests = JSON.parse(fs.readFileSync(guestsFile, 'utf8'));
+    const guestIndex = guests.findIndex((g) => g.id === guest.id);
+    if (guestIndex !== -1) {
+      guests[guestIndex] = {
+        ...guests[guestIndex],
+        estado: decision,
+        estado_rsvp: decision,
+        fecha_rsvp: record.fecha_respuesta,
+        mensaje_rsvp: record.mensaje,
+        updated_at: record.updated_at,
+      };
+      fs.writeFileSync(guestsFile, JSON.stringify(guests, null, 2), 'utf8');
+    }
+  } catch (error) {
+    console.error('Could not sync local guest RSVP:', error.message);
+    res.status(500).json({ error: 'No se pudo registrar tu respuesta' });
+    return;
+  }
+
   res.status(200).json({
     ok: true,
     estado: decision,
@@ -121,7 +154,8 @@ async function handleList(req, res) {
   if (supabaseConfigured && supabase) {
     const { data, error } = await supabase
       .from('rsvp_respuestas')
-      .select('id, guest_id, estado, telefono, mensaje, fecha_respuesta, guests!inner(nombre, cantidad_personas, pertenece, categoria)')
+      .select('id, guest_id, estado, telefono, mensaje, fecha_respuesta, guests!inner(nombre, cantidad_personas, pertenece, categoria, archived_at)')
+      .is('guests.archived_at', null)
       .order('fecha_respuesta', { ascending: false });
     if (error) {
       console.error('RSVP list error:', error.message);
@@ -143,7 +177,15 @@ async function handleList(req, res) {
     res.status(200).json(rows);
     return;
   }
-  res.status(200).json(readLocal());
+  const activeGuestIds = new Set(
+    (() => {
+      try {
+        const guests = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'guests.json'), 'utf8'));
+        return guests.filter((g) => !g.archived_at).map((g) => g.id);
+      } catch { return []; }
+    })()
+  );
+  res.status(200).json(readLocal().filter((r) => activeGuestIds.has(r.guest_id)));
 }
 
 /* ════════════════ DELETE admin: borrar respuesta ════════════════ */
@@ -169,14 +211,21 @@ async function handleDelete(req, res) {
 
 /* ════════════════ Router ════════════════ */
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Cache-Control', 'no-store');
 
+  if (!isSameOriginRequest(req)) {
+    res.status(403).json({ error: 'Origen no permitido' });
+    return;
+  }
+
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
+    res.status(204).end();
+    return;
+  }
+
+  // Never use Vercel's ephemeral local filesystem as a production database.
+  if (process.env.NODE_ENV === 'production' && (!supabaseConfigured || !supabase)) {
+    res.status(503).json({ error: 'Servicio no disponible' });
     return;
   }
 

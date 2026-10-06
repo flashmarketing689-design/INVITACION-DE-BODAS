@@ -7,34 +7,23 @@
  * Seguridad:
  * - No distingue "token inválido" de "invitado inexistente" (respuesta única).
  * - Nunca expone id interno, teléfono, notas ni administrativa.
- * - Rate limit básico en memoria por IP (evita enumeración masiva).
+ * - Rate limit básico por IP; el token es un bearer secreto aleatorio.
  */
 
-const { getGuestByToken } = require('./auth');
-
-const WINDOW_MS = 60 * 1000;
-const MAX_REQ_PER_WINDOW = 30;
-const buckets = new Map();
-
-function rateLimit(ip) {
-  const now = Date.now();
-  const entry = buckets.get(ip);
-  if (!entry || now - entry.start > WINDOW_MS) {
-    buckets.set(ip, { start: now, count: 1 });
-    return true;
-  }
-  entry.count += 1;
-  return entry.count <= MAX_REQ_PER_WINDOW;
-}
+const { getGuestByToken, isSameOriginRequest } = require('../lib/auth');
+const { supabase, supabaseConfigured } = require('../lib/supabaseClient');
+const { allowRequest, clientIp } = require('../lib/rateLimit');
 
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Cache-Control', 'no-store');
 
+  if (!isSameOriginRequest(req)) {
+    res.status(403).json({ error: 'Origen no permitido' });
+    return;
+  }
+
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
+    res.status(204).end();
     return;
   }
 
@@ -43,12 +32,12 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const ip =
-    (req.headers['x-forwarded-for'] || '').split(',')[0].trim() ||
-    req.socket?.remoteAddress ||
-    'unknown';
+  if (process.env.NODE_ENV === 'production' && (!supabaseConfigured || !supabase)) {
+    res.status(503).json({ error: 'Servicio no disponible' });
+    return;
+  }
 
-  if (!rateLimit(ip)) {
+  if (!allowRequest(`guest-lookup:${clientIp(req)}`, 30, 60 * 1000)) {
     // Mismo shape que "no encontrado": no revela nada
     res.status(200).json({ found: false });
     return;
@@ -57,7 +46,14 @@ module.exports = async function handler(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const token = (url.searchParams.get('token') || '').trim().toLowerCase();
 
-  const guest = await getGuestByToken(token);
+  let guest;
+  try {
+    guest = await getGuestByToken(token);
+  } catch (error) {
+    console.error('Guest lookup failed:', error.message);
+    res.status(500).json({ error: 'No se pudo verificar la invitación' });
+    return;
+  }
 
   if (!guest) {
     res.status(200).json({ found: false });

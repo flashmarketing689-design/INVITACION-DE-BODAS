@@ -98,6 +98,44 @@ test('login rechaza contraseña incorrecta', async () => {
   assert.equal(res.statusCode, 401);
 });
 
+test('API administrativas rechazan orígenes cross-site', async () => {
+  resetData();
+  const res = createRes();
+  await guestsHandler(createReq({
+    method: 'GET',
+    url: '/api/guests',
+    headers: { origin: 'https://attacker.example' },
+  }), res);
+  assert.equal(res.statusCode, 403);
+});
+
+test('producción falla de forma segura si Supabase no está configurado', async () => {
+  const previous = process.env.NODE_ENV;
+  process.env.NODE_ENV = 'production';
+  try {
+    const res = createRes();
+    await guestHandler(createReq({ method: 'GET', url: '/api/guest?token=not-a-token' }), res);
+    assert.equal(res.statusCode, 503);
+    assert.deepEqual(res.body, { error: 'Servicio no disponible' });
+  } finally {
+    if (previous === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previous;
+  }
+});
+
+test('la cookie de administración es Secure detrás de HTTPS', async () => {
+  const res = createRes();
+  await guestsHandler(createReq({
+    method: 'POST',
+    url: '/api/guests?action=login',
+    body: { password: 'test-admin-pass' },
+    headers: { 'x-forwarded-proto': 'https', 'x-forwarded-for': '198.51.100.42' },
+  }), res);
+  assert.equal(res.statusCode, 200);
+  assert.match(res.headers['Set-Cookie'], /; Secure(?:;|$)/);
+  assert.match(res.headers['Set-Cookie'], /HttpOnly/);
+});
+
 /* ══════════ Tokens ══════════ */
 
 test('crear invitado genera token UUID único', async () => {
@@ -144,6 +182,48 @@ test('token inválido responde found:false sin revelar información', async () =
   await guestHandler(createReq({ method: 'GET', url: '/api/guest?token=not-a-token' }), res);
   assert.equal(res.statusCode, 200);
   assert.deepEqual(res.body, { found: false });
+});
+
+test('migración legacy es idempotente si el navegador reintenta el mismo lote', async () => {
+  resetData();
+  const cookie = await loginAdmin();
+  const batchId = '123e4567-e89b-42d3-a456-426614174000';
+  const first = createRes();
+  await guestsHandler(createReq({
+    method: 'POST', url: '/api/guests?import=1',
+    body: { batch_id: batchId, guests: [{ id: 'old-1', nombre: 'Ana Pérez', cantidad: 2, enviada: false }] },
+    headers: { cookie },
+  }), first);
+  const retry = createRes();
+  await guestsHandler(createReq({
+    method: 'POST', url: '/api/guests?import=1',
+    body: { batch_id: batchId, guests: [{ id: 'old-1', nombre: 'Ana Pérez', cantidad: 2, enviada: false }] },
+    headers: { cookie },
+  }), retry);
+
+  assert.equal(first.statusCode, 200);
+  assert.equal(first.body.imported, 1);
+  assert.equal(retry.statusCode, 200);
+  assert.equal(retry.body.replayed, true);
+  assert.equal(JSON.parse(fs.readFileSync(GUESTS_FILE, 'utf8')).length, 1);
+});
+
+test('un lote legacy no puede reutilizar su idempotency key con otro contenido', async () => {
+  resetData();
+  const cookie = await loginAdmin();
+  const batchId = '223e4567-e89b-42d3-a456-426614174000';
+  const send = (nombre) => {
+    const res = createRes();
+    return guestsHandler(createReq({
+      method: 'POST', url: '/api/guests?import=1',
+      body: { batch_id: batchId, guests: [{ nombre, cantidad_personas: 1 }] },
+      headers: { cookie },
+    }), res).then(() => res);
+  };
+  await send('Ana Pérez');
+  const retry = await send('Luis Cruz');
+  assert.equal(retry.statusCode, 409);
+  assert.equal(JSON.parse(fs.readFileSync(GUESTS_FILE, 'utf8')).length, 1);
 });
 
 test('invitación por token expone solo nombre, cantidad y estado', async () => {
@@ -209,6 +289,46 @@ test('cambiar respuesta ACTUALIZA y no duplica el RSVP', async () => {
   assert.equal(local[0].guest_id, g.id);
   assert.equal(local[0].estado, 'no_asiste');
   assert.equal(local[0].mensaje, 'al final no puedo');
+});
+
+test('la respuesta persiste en el invitado al volver a cargar el enlace', async () => {
+  resetData();
+  const cookie = await loginAdmin();
+  const g = await createGuest(cookie);
+  await confirm(g.token, 'confirmado');
+
+  const res = createRes();
+  await guestHandler(createReq({ method: 'GET', url: `/api/guest?token=${g.token}` }), res);
+  assert.equal(res.body.found, true);
+  assert.equal(res.body.guest.estado_rsvp, 'confirmado');
+});
+
+test('eliminar de la lista archiva, revoca el enlace y conserva el RSVP', async () => {
+  resetData();
+  const cookie = await loginAdmin();
+  const g = await createGuest(cookie);
+  await confirm(g.token, 'confirmado');
+
+  const deleted = createRes();
+  await guestsHandler(createReq({
+    method: 'DELETE', url: '/api/guests', body: { id: g.id }, headers: { cookie },
+  }), deleted);
+  assert.equal(deleted.statusCode, 200);
+  assert.equal(deleted.body.archived, true);
+
+  const guestRows = JSON.parse(fs.readFileSync(GUESTS_FILE, 'utf8'));
+  assert.equal(guestRows.length, 1);
+  assert.ok(guestRows[0].archived_at);
+  assert.notEqual(guestRows[0].token, g.token);
+  assert.equal(JSON.parse(fs.readFileSync(LOCAL_RSVPS, 'utf8')).length, 1);
+
+  const oldLink = createRes();
+  await guestHandler(createReq({ method: 'GET', url: `/api/guest?token=${g.token}` }), oldLink);
+  assert.deepEqual(oldLink.body, { found: false });
+
+  const list = createRes();
+  await guestsHandler(createReq({ method: 'GET', url: '/api/guests', headers: { cookie } }), list);
+  assert.deepEqual(list.body, []);
 });
 
 test('POST sin token o con token inválido → 404 sin pistas', async () => {

@@ -24,6 +24,10 @@ try {
 
 const ROOT = __dirname;
 const PORT = parseInt(process.env.PORT || '3000', 10);
+const PUBLIC_FILES = new Set([
+  'index.html', 'invitados.html', 'admin.html',
+  'favicon.svg', 'foto-pareja.jpg', 'musica-boda.mp3',
+]);
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -118,12 +122,18 @@ function serveStatic(req, res, pathname) {
   }
 
   // cleanUrls: /index → /index.html ; "/" → index.html
-  let rel = decodeURIComponent(pathname);
+  let rel;
+  try { rel = decodeURIComponent(pathname); }
+  catch { send(res, 400, 'Solicitud inválida', { 'Content-Type': 'text/plain; charset=utf-8' }); return; }
   if (rel === '/' || rel === '') rel = '/index.html';
   if (!path.extname(rel)) rel += '.html';
 
-  const file = path.normalize(path.join(ROOT, rel));
-  if (!file.startsWith(ROOT)) { json(res, 403, { error: 'Forbidden' }); return; }
+  const publicName = rel.replace(/\\/g, '/').replace(/^\/+/, '');
+  if (!PUBLIC_FILES.has(publicName)) {
+    send(res, 404, '404 — Página no encontrada', { 'Content-Type': 'text/plain; charset=utf-8' });
+    return;
+  }
+  const file = path.join(ROOT, publicName);
 
   fs.stat(file, (err, st) => {
     if (err || !st.isFile()) {
@@ -155,9 +165,10 @@ const server = http.createServer(async (req, res) => {
   serveStatic(req, res, pathname);
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, '127.0.0.1', () => {
   const pass = process.env.ADMIN_PASSWORD ? 'configurada ✔' : '⚠ NO configurada (login admin deshabilitado)';
-  const sb = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY ? 'configurado' : 'no configurado → fallback data/*.json';
+  const hasServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+  const sb = process.env.SUPABASE_URL && hasServiceKey ? 'configurado' : 'no configurado → fallback data/*.json';
   console.log('──────────────────────────────────────────────────');
   console.log('  Invitación de boda — servidor de desarrollo');
   console.log(`  http://localhost:${PORT}`);

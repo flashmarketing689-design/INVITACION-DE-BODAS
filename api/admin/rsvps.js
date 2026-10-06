@@ -9,8 +9,8 @@
  * invitados confirmados — datos que solo existen en la base de datos.
  */
 
-const { isAdminRequest } = require('../auth');
-const { supabase, supabaseConfigured } = require('../supabaseClient');
+const { isAdminRequest, isSameOriginRequest } = require('../../lib/auth');
+const { supabase, supabaseConfigured } = require('../../lib/supabaseClient');
 
 const MAX_GUESTS = 100;
 
@@ -29,14 +29,15 @@ function emptyStats() {
 }
 
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Cache-Control', 'no-store');
 
+  if (!isSameOriginRequest(req)) {
+    res.status(403).json({ error: 'Origen no permitido' });
+    return;
+  }
+
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
+    res.status(204).end();
     return;
   }
   if (req.method !== 'GET') {
@@ -49,6 +50,11 @@ module.exports = async function handler(req, res) {
     return;
   }
 
+  if (process.env.NODE_ENV === 'production' && (!supabaseConfigured || !supabase)) {
+    res.status(503).json({ error: 'Almacenamiento no configurado' });
+    return;
+  }
+
   if (!supabaseConfigured || !supabase) {
     // Fallback local: leer guests.json y rsvp_respuestas_local.json
     const fs = require('fs');
@@ -58,7 +64,7 @@ module.exports = async function handler(req, res) {
         return JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'data', f), 'utf8')) || fallback;
       } catch { return fallback; }
     };
-    const guests = read('guests.json');
+    const guests = read('guests.json').filter((g) => !g.archived_at);
     const respuestas = read('rsvp_respuestas_local.json');
     const byGuest = new Map(respuestas.map((r) => [r.guest_id, r]));
 
@@ -99,6 +105,7 @@ module.exports = async function handler(req, res) {
   const { data: guests, error } = await supabase
     .from('guests')
     .select('id, nombre, telefono, pertenece, categoria, cantidad_personas, invitacion_enviada, estado, estado_rsvp, fecha_rsvp, mensaje_rsvp')
+    .is('archived_at', null)
     .order('created_at', { ascending: true });
 
   if (error) {
@@ -108,11 +115,12 @@ module.exports = async function handler(req, res) {
   }
 
   const stats = emptyStats();
-  stats.total_invitados = guests.length;
-  stats.personas_invitadas = guests.reduce((s, g) => s + (g.cantidad_personas || 1), 0);
-  stats.enviadas = guests.filter((g) => g.invitacion_enviada).length;
+  const guestRows = guests || [];
+  stats.total_invitados = guestRows.length;
+  stats.personas_invitadas = guestRows.reduce((s, g) => s + (g.cantidad_personas || 1), 0);
+  stats.enviadas = guestRows.filter((g) => g.invitacion_enviada).length;
 
-  (guests || []).forEach((g) => {
+  guestRows.forEach((g) => {
     if (g.estado_rsvp === 'confirmado') {
       stats.confirmados += 1;
       stats.personas_confirmadas += g.cantidad_personas || 1;

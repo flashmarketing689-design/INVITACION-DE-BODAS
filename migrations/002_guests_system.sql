@@ -41,13 +41,25 @@ create table if not exists guests (
 create index if not exists guests_pertenece_idx  on guests (pertenece);
 create index if not exists guests_categoria_idx  on guests (categoria);
 create index if not exists guests_estado_idx     on guests (estado);
-create index if not exists guests_token_idx      on guests (token);
 
 -- updated_at automático
+-- Usamos una función local en vez de depender de la extensión moddatetime,
+-- que no está habilitada en todos los proyectos de Supabase.
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
 drop trigger if exists trg_guests_updated_at on guests;
 create trigger trg_guests_updated_at
   before update on guests
-  for each row execute function moddatetime(updated_at);
+  for each row execute function public.set_updated_at();
 
 -- ══ RSVP: un registro por invitado (upsert por guest_id) ══
 -- Conserva la tabla legacy `rsvps` intacta (datos históricos), pero el
@@ -72,7 +84,7 @@ create index if not exists rsvp_respuestas_estado_idx on rsvp_respuestas (estado
 drop trigger if exists trg_rsvp_respuestas_updated_at on rsvp_respuestas;
 create trigger trg_rsvp_respuestas_updated_at
   before update on rsvp_respuestas
-  for each row execute function moddatetime(updated_at);
+  for each row execute function public.set_updated_at();
 
 -- ══ HISTORIAL DE CAMBIOS (auditoría de reconfirmaciones) ══
 create table if not exists rsvp_historial (
@@ -139,7 +151,7 @@ create trigger trg_rsvp_respuestas_sync
 -- ══ MIGRACIÓN DE DATOS LOCALSTORAGE → SUPABASE (opcional, una vez) ══
 -- Si exportaste el localStorage `boda_sr_invitados` a JSON, cárgalo con:
 --   \copy tmp_guests_import from 'invitados.json' ...
--- o usa el endpoint POST /api/guests/import descrito en el README.
+-- o usa el endpoint POST /api/guests?import=1.
 -- Aquí solo preparamos la tabla temporal.
 create table if not exists tmp_guests_import (
   legacy_id  text,
@@ -210,7 +222,6 @@ alter table rsvp_historial    enable row level security;
 -- Las API de Vercel usan SUPABASE_SERVICE_KEY que ignora RLS.
 
 -- ══ NOTAS ══
--- 1. moddatetime es una extensión de Supabase ya habilitada por defecto.
---    Si no lo está: create extension if not exists moddatetime;
--- 2. gen_random_uuid() requiere pgcrypto (ya incluido en Supabase).
--- 3. Tras ejecutar, corre: select assign_guest_tokens();
+-- 1. updated_at usa la función local set_updated_at(); no requiere extensiones.
+-- 2. gen_random_uuid() está disponible en Supabase.
+-- 3. Los tokens de invitados nuevos se asignan automáticamente por defecto.

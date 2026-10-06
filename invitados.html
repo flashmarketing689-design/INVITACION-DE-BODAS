@@ -162,6 +162,7 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
 .card-rsvp svg{width:13px;height:13px;fill:currentColor;flex-shrink:0;}
 .card-rsvp.confirmado{background:rgba(90,122,92,.1);color:var(--green);}
 .card-rsvp.no_asiste{background:var(--red-pale);color:var(--red);}
+.card-rsvp.enviada{background:rgba(201,168,76,.13);color:#A88530;}
 .card-rsvp.pendiente{background:var(--ivory);color:var(--text-soft);}
 
 /* ─── TOGGLE ─── */
@@ -330,8 +331,8 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
   <!-- Stats -->
   <div class="stats" id="stats-row">
     <div class="stat-card dark"><div class="stat-label">Total invitados</div><div class="stat-value" id="s-total">0</div><div class="stat-sub">registros</div></div>
-    <div class="stat-card green"><div class="stat-label">Del novio</div><div class="stat-value" id="s-novio">0</div><div class="stat-sub">personas</div></div>
-    <div class="stat-card gold"><div class="stat-label">De la novia</div><div class="stat-value" id="s-novia">0</div><div class="stat-sub">personas</div></div>
+    <div class="stat-card green"><div class="stat-label">Del novio</div><div class="stat-value" id="s-novio">0</div><div class="stat-sub">invitaciones</div></div>
+    <div class="stat-card gold"><div class="stat-label">De la novia</div><div class="stat-value" id="s-novia">0</div><div class="stat-sub">invitaciones</div></div>
     <div class="stat-card green"><div class="stat-label">Enviadas</div><div class="stat-value" id="s-sent">0</div><div class="stat-sub">invitaciones</div></div>
     <div class="stat-card red"><div class="stat-label">Pendientes de envío</div><div class="stat-value" id="s-pending">0</div><div class="stat-sub">por enviar</div></div>
     <div class="stat-card purple"><div class="stat-label">Total de personas</div><div class="stat-value" id="s-people">0</div><div class="stat-sub">incluyendo grupos</div></div>
@@ -527,7 +528,7 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
    ESTADO Y CONFIGURACIÓN
 ============================================================ */
 const LEGACY_KEY = 'boda_sr_invitados';   // clave legacy de localStorage
-const MIGRATED_KEY = 'boda_sr_invitados_migrated';
+const IMPORT_BATCH_KEY = 'boda_sr_import_batch_id';
 
 const CATS = [
   { id:'familiares', label:'Familiares',            color:'#5A7A5C', bg:'rgba(90,122,92,.12)'  },
@@ -538,6 +539,7 @@ const CATS = [
 
 const RSVP_LABELS = {
   pendiente:  'Sin respuesta',
+  enviada:    'Invitación enviada',
   confirmado: 'Confirmó asistencia',
   no_asiste:  'No asistirá',
 };
@@ -568,9 +570,13 @@ async function tryLogin(){
       body: JSON.stringify({ password: pwdInput.value })
     });
     if (res.ok) {
-      sessionStorage.removeItem('boda_admin_view');
       await enterApp();
     } else {
+      loginError.textContent = res.status === 429
+        ? 'Demasiados intentos. Espera un momento y vuelve a probar.'
+        : res.status === 503
+          ? 'El panel no está disponible. Comprueba la configuración del servidor.'
+          : 'Contraseña incorrecta. Intenta de nuevo.';
       loginError.classList.add('show');
       pwdInput.style.borderColor = '#C0504A';
       setTimeout(()=>{ loginError.classList.remove('show'); pwdInput.style.borderColor=''; }, 2500);
@@ -625,8 +631,7 @@ async function loadGuests(){
 }
 
 function guestLink(g){
-  const base = location.origin + location.pathname.replace('invitados.html','index.html');
-  return base.split('?')[0] + '?guest=' + g.token;
+  return new URL('/?guest=' + encodeURIComponent(g.token), location.origin).href;
 }
 
 function whatsappMessage(g){
@@ -664,9 +669,28 @@ function readLegacy(){
   } catch { return []; }
 }
 
+function createImportBatchId(){
+  if(window.crypto?.randomUUID) return window.crypto.randomUUID();
+  const bytes = new Uint8Array(16);
+  window.crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, b=>b.toString(16).padStart(2,'0')).join('');
+  return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+}
+
+function getImportBatchId(){
+  let id = localStorage.getItem(IMPORT_BATCH_KEY);
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id || '')){
+    id = createImportBatchId();
+    localStorage.setItem(IMPORT_BATCH_KEY, id);
+  }
+  return id;
+}
+
 function maybeShowMigrationBanner(){
   const legacy = readLegacy();
-  if (localStorage.getItem(MIGRATED_KEY) === '1' || legacy.length === 0) return;
+  if (legacy.length === 0) return;
   document.getElementById('migrate-count').textContent = legacy.length;
   document.getElementById('migrate-banner').style.display = 'flex';
 }
@@ -679,10 +703,10 @@ document.getElementById('migrate-btn').addEventListener('click', async ()=>{
   try {
     await api('/api/guests?import=1', {
       method: 'POST',
-      body: JSON.stringify({ guests: legacy }),
+      body: JSON.stringify({ guests: legacy, batch_id: getImportBatchId() }),
     });
-    localStorage.setItem(MIGRATED_KEY, '1');
     localStorage.removeItem(LEGACY_KEY);
+    localStorage.removeItem(IMPORT_BATCH_KEY);
     document.getElementById('migrate-banner').style.display = 'none';
     await loadGuests();
     renderAll();
@@ -816,7 +840,7 @@ function createCard(g, cat){
   card.className = 'guest-card';
   card.dataset.id = g.id;
 
-  const rsvpClass = st === 'confirmado' ? 'confirmado' : st === 'no_asiste' ? 'no_asiste' : 'pendiente';
+  const rsvpClass = st === 'confirmado' ? 'confirmado' : st === 'no_asiste' ? 'no_asiste' : st === 'enviada' ? 'enviada' : 'pendiente';
   const rsvpIcon  = st === 'confirmado'
     ? '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>'
     : st === 'no_asiste'
@@ -850,9 +874,13 @@ function createCard(g, cat){
       ${sentDate ? `<span class="sent-date">${sentDate}</span>` : ''}
     </div>
     <div class="card-actions">
+      <button class="act-btn act-copy" data-id="${g.id}" title="Copiar el enlace personal de esta invitación">
+        <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+        Copiar invitación
+      </button>
       <button class="act-btn act-link" data-id="${g.id}" title="Ver y copiar enlace personal">
         <svg viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>
-        Invitación
+        Ver enlace
       </button>
       ${hasPhone ? `
       <button class="act-btn act-wa" data-id="${g.id}" title="Enviar por WhatsApp">
@@ -874,6 +902,11 @@ function createCard(g, cat){
   card.querySelector('.sent-toggle').addEventListener('change', e=>{
     e.stopPropagation();
     toggleSent(g.id, e.target.checked);
+  });
+  /* Copiar invitación personalizada */
+  card.querySelector('.act-copy').addEventListener('click', async ()=>{
+    const ok = await copyToClipboard(guestLink(g));
+    showToast(ok ? 'Enlace personal copiado.' : 'No se pudo copiar; abre el enlace para copiarlo manualmente.');
   });
   /* Enlace personal */
   card.querySelector('.act-link').addEventListener('click', ()=>{ openLinkModal(g.id); });
@@ -956,7 +989,7 @@ document.getElementById('link-copy-btn').addEventListener('click', async ()=>{
 document.getElementById('link-wa-btn').addEventListener('click', ()=>{
   const g = guests.find(x=>x.id===linkModalGuestId);
   if (!g) return;
-  window.open(whatsappUrl(g), '_blank');
+  sendWhatsApp(g.id);
 });
 
 document.getElementById('link-regen-btn').addEventListener('click', ()=>{
@@ -987,9 +1020,10 @@ document.getElementById('link-regen-btn').addEventListener('click', ()=>{
 function sendWhatsApp(id){
   const g = guests.find(x=>x.id===id);
   if (!g) return;
-  // Abrir WhatsApp también marca la invitación como enviada si aún no lo está.
-  window.open(whatsappUrl(g), '_blank');
-  if (!g.invitacion_enviada) toggleSent(id, true);
+  // El navegador no puede saber si el usuario terminó enviando el mensaje.
+  // La marca de envío queda como acción manual para no contar borradores.
+  window.open(whatsappUrl(g), '_blank', 'noopener,noreferrer');
+  showToast('WhatsApp se abrió con el mensaje. Marca la invitación como enviada cuando la hayas enviado.');
 }
 
 /* ============================================================
@@ -1113,14 +1147,14 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closeModal(); cl
 function confirmDelete(id, nombre){
   showConfirm(
     'Eliminar invitado',
-    `¿Eliminar a "${nombre}" de la lista de invitados? Su enlace personal y su confirmación se eliminarán también. Esta acción no se puede deshacer.`,
+    `¿Quitar a "${nombre}" de la lista? Su enlace quedará invalidado. La invitación, la respuesta y su historial se conservarán archivados.`,
     'Eliminar',
     async ()=>{
       try {
         await api('/api/guests', { method:'DELETE', body: JSON.stringify({ id }) });
         guests = guests.filter(g=>g.id!==id);
         renderAll();
-        showToast('Invitado eliminado correctamente.');
+        showToast('Invitado quitado de la lista; su historial se conservó.');
       } catch(e) {
         showToast('No se pudo eliminar: ' + e.message);
       }
