@@ -526,14 +526,15 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
       <button class="modal-close" id="link-close-btn" aria-label="Cerrar">&times;</button>
     </div>
     <p id="link-modal-description" style="font-size:.76rem;color:var(--text-soft);margin-bottom:1rem;line-height:1.6">
-      Enlace exclusivo de <strong id="link-modal-name"></strong>. Solo esta persona puede abrir su invitación con este enlace.
+      Comparte el mensaje de confirmación junto con el enlace de esta invitación.
     </p>
     <div class="link-modal-code" id="link-modal-code"></div>
     <div class="link-modal-actions">
       <button class="btn-sm btn-green" id="link-copy-btn">
         <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-        <span>Copiar</span>
+        <span>Copiar mensaje</span>
       </button>
+      <button class="btn-sm btn-outline" id="link-only-copy-btn">Solo enlace</button>
       <a class="btn-sm btn-outline" id="link-open-btn" target="_blank" rel="noopener noreferrer" style="text-decoration:none">
         <svg viewBox="0 0 24 24"><path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>
         <span>Abrir</span>
@@ -594,6 +595,7 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
 <!-- ══ TOAST ══ -->
 <div id="toast"></div>
 
+<script src="/invitation-share.js?v=1"></script>
 <script>
 (function(){
 'use strict';
@@ -723,34 +725,15 @@ window.addEventListener('pageshow', event=>{ if(event.persisted) refreshGuestMem
 document.addEventListener('visibilitychange', refreshGuestMembership);
 
 function guestLink(g){
-  return new URL('/?guest=' + encodeURIComponent(g.invitation_token || g.token), location.origin).href;
+  return InvitationShare.invitationUrl(g.invitation_token || g.token, location.origin);
 }
 
 function whatsappMessage(g){
-  // Personalizable: edita estas líneas para cambiar el texto del mensaje.
-  const link = guestLink(g);
-  const inviteName = g.invitation_name || g.nombre;
-  const isGroup = ['couple','family'].includes(g.invitation_type);
-  return [
-    `Hola ${inviteName} 👋`,
-    '',
-    'Queremos compartir contigo nuestra invitación de boda. Nos haría mucha ilusión contar contigo en este día tan importante para nosotros.',
-    '',
-    isGroup ? 'La invitación compartida para ustedes:' : 'Tu invitación personal:',
-    link,
-    '',
-    'Por favor, entra en tu invitación y confírmanos si podrás acompañarnos. 🤍',
-    '',
-    'Starlin & Reneisy'
-  ].join('\n');
+  return InvitationShare.message(guestLink(g));
 }
 
 function whatsappUrl(g){
-  const phone = (g.telefono || '').replace(/[^\d]/g, '');
-  const text  = encodeURIComponent(whatsappMessage(g));
-  return phone
-    ? `https://wa.me/${phone}?text=${text}`
-    : `https://wa.me/?text=${text}`;
+  return InvitationShare.whatsappUrl(guestLink(g), g.telefono);
 }
 
 /* ============================================================
@@ -1115,7 +1098,6 @@ function createCard(g, cat){
   const cantidad  = parseInt(g.cantidad_personas)||1;
   const sentDate  = g.fecha_invitacion_enviada ? new Date(g.fecha_invitacion_enviada).toLocaleDateString('es-DO',{day:'2-digit',month:'short'}) : '';
   const st        = effectiveState(g);
-  const hasPhone  = Boolean(g.telefono);
   const shared = isSharedInvitation(g);
   const invitationType = g.invitation_type === 'couple' ? 'Pareja' : 'Familia';
 
@@ -1159,19 +1141,18 @@ function createCard(g, cat){
       ${sentDate ? `<span class="sent-date">${sentDate}</span>` : ''}
     </div>
     <div class="card-actions">
-      <button class="act-btn act-copy" data-id="${g.id}" title="${shared ? 'Copiar el enlace compartido de todo el grupo' : 'Copiar el enlace individual'}">
+      <button class="act-btn act-copy" data-id="${g.id}" title="Copiar el mensaje de confirmación con ${shared ? 'el enlace grupal' : 'el enlace individual'}">
         <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-        ${shared ? 'Copiar enlace grupal' : 'Copiar invitación'}
+        Copiar mensaje
       </button>
       <button class="act-btn act-link" data-id="${g.id}" title="${shared ? 'Ver el enlace compartido' : 'Ver el enlace individual'}">
         <svg viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>
         Ver enlace
       </button>
-      ${hasPhone ? `
       <button class="act-btn act-wa" data-id="${g.id}" title="Enviar por WhatsApp">
         <svg viewBox="0 0 24 24"><path d="M16.75 13.96c-.25-.13-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.13-.17.25-.64.81-.78.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-1.99-1.23-.74-.66-1.23-1.47-1.38-1.72-.15-.25-.02-.38.11-.51.11-.11.25-.29.37-.43s.17-.25.25-.41c.08-.17.04-.31-.02-.43s-.56-1.34-.76-1.84c-.2-.48-.41-.42-.56-.43h-.48c-.17 0-.43.06-.66.31-.22.25-.86.85-.86 2.07 0 1.22.89 2.4 1.01 2.56.12.17 1.75 2.67 4.23 3.74.59.26 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.67-1.18.21-.58.21-1.07.15-1.18-.07-.1-.23-.16-.48-.29zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg>
         WhatsApp
-      </button>` : ''}
+      </button>
       <button class="act-btn act-edit" data-id="${g.id}">
         <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
         Editar
@@ -1190,8 +1171,8 @@ function createCard(g, cat){
   });
   /* Copiar invitación personalizada */
   card.querySelector('.act-copy').addEventListener('click', async ()=>{
-    const ok = await copyToClipboard(guestLink(g));
-    showToast(ok ? (shared ? 'Enlace grupal copiado.' : 'Enlace individual copiado.') : 'No se pudo copiar; abre el enlace para copiarlo manualmente.');
+    const ok = await copyToClipboard(whatsappMessage(g));
+    showToast(ok ? 'Mensaje y enlace copiados. Listos para compartir.' : 'No se pudo copiar; usa el botón WhatsApp.');
   });
   /* Enlace personal */
   card.querySelector('.act-link').addEventListener('click', ()=>{ openLinkModal(g.id); });
@@ -1230,7 +1211,6 @@ function openLinkModal(id){
   linkModalGuestId = id;
   const shared = ['couple','family'].includes(g.invitation_type);
   document.getElementById('link-modal-title').textContent = shared ? 'Enlace compartido' : 'Invitación personal';
-  document.getElementById('link-modal-name').textContent = g.invitation_name || g.nombre;
   document.getElementById('link-modal-description').textContent = shared
     ? `${g.invitation_name} · ${invitationPeople(g)} personas: ${(g.invitation_members || []).map(member=>member.nombre).join(', ')}. Este es el mismo enlace compartido para todo el grupo; cada integrante confirma su asistencia por separado.`
     : 'Enlace individual de esta persona. Compártelo únicamente con el invitado registrado.';
@@ -1269,6 +1249,13 @@ async function copyToClipboard(text){
 }
 
 document.getElementById('link-copy-btn').addEventListener('click', async ()=>{
+  const g = guests.find(x=>x.id===linkModalGuestId);
+  if (!g) return;
+  const ok = await copyToClipboard(whatsappMessage(g));
+  showToast(ok ? 'Mensaje y enlace copiados. Listos para compartir.' : 'No se pudo copiar; usa el botón WhatsApp.');
+});
+
+document.getElementById('link-only-copy-btn').addEventListener('click', async ()=>{
   const g = guests.find(x=>x.id===linkModalGuestId);
   if (!g) return;
   const ok = await copyToClipboard(guestLink(g));

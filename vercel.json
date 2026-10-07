@@ -21,13 +21,19 @@
       ]
     },
     {
+      "source": "/invitation-share.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    },
+    {
       "source": "/api/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "no-store, max-age=0" }
       ]
     },
     {
-      "source": "/(foto-pareja.jpg|musica-boda.mp3|favicon.svg)",
+      "source": "/(foto-pareja.jpg|foto-pareja-social.png|musica-boda.mp3|favicon.svg)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
       ]

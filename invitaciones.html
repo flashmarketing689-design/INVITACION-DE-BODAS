@@ -73,6 +73,7 @@
 </div>
 <div class="auth show" id="auth"><form class="auth-box" id="login-form"><h2>Acceso administrativo</h2><p>Inicia sesión con la clave de administración para gestionar grupos, enlaces y pases.</p><input id="password" type="password" autocomplete="current-password" placeholder="Clave de administración" required><button class="btn primary" type="submit" style="width:100%;margin-top:.4rem">Entrar</button><div class="error" id="login-error"></div></form></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="/invitation-share.js?v=1"></script>
 <script>
 'use strict';
 const $=id=>document.getElementById(id);
@@ -86,7 +87,7 @@ const safe=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'
 async function api(url,options={}){const response=await fetch(url,{cache:'no-store',credentials:'same-origin',...options,headers:{'Content-Type':'application/json',...(options.headers||{})}});const data=await response.json().catch(()=>({}));if(!response.ok){const error=new Error(data.error||'No se pudo completar la solicitud.');error.status=response.status;throw error;}return data;}
 function notify(message){const el=$('toast');el.textContent=message;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),3200);}
 function showError(message){$('page-error').textContent=message;$('page-error').classList.add('show');}
-function inviteUrl(token){return new URL('/?guest='+encodeURIComponent(token),location.origin).toString();}
+function inviteUrl(token){return InvitationShare.invitationUrl(token,location.origin);}
 function category(value){return ({familiares:'Familiares',amigos:'Amigos',companeros:'Compañeros',iglesia:'Iglesia',participantes:'Participantes'})[value]||'Invitado';}
 function stateLabel(state){if(state==='confirmado')return ['Asistirá','yes'];if(state==='no_asiste')return ['No asistirá','no'];return ['Pendiente',''];}
 function availableGuests(){return guests.filter(g=>!g.archived_at&&(Number(g.cantidad_personas)||1)===1&&!g.invitation_needs_review&&(!g.invitation_type||g.invitation_type==='individual'));}
@@ -203,10 +204,8 @@ function renderGroups(){
       return `<li><span>${safe(member.nombre)}</span><span class="state ${stateLabel(member.estado_rsvp)[1]}">${safe(stateLabel(member.estado_rsvp)[0])}${checkin}</span></li>`;
     }).join('');
     const phone=members.find(member=>member.telefono)?.telefono;
-    const digits=String(phone||'').replace(/\D/g,'');
-    const text=`Hola, ${group.display_name}. Te compartimos el enlace de invitación de la boda de Starlin y Reneisy: ${link}`;
-    const whatsapp=digits?`https://wa.me/${digits}?text=${encodeURIComponent(text)}`:'';
-    const actions=`<button class="btn" data-copy="${safe(link)}">Copiar enlace</button><a class="btn" href="${safe(link)}" target="_blank" rel="noopener">Abrir RSVP</a>${whatsapp?`<a class="btn" href="${safe(whatsapp)}" target="_blank" rel="noopener">WhatsApp</a>`:''}<button class="btn" data-add-members="${safe(group.id)}" ${checked||needsReview||peopleInGroup>=100?'disabled title="Revisa esta invitación o sus entradas antes de editar"':''}>Agregar personas</button><button class="btn" data-sent="${safe(group.id)}" data-value="${group.sent_at?'false':'true'}">${group.sent_at?'Desmarcar envío':'Marcar enviada'}</button><button class="btn warn" data-rotate="${safe(group.id)}">Regenerar enlace</button>${group.group_type!=='individual'?`<button class="btn warn" data-split="${safe(group.id)}" ${checked?'disabled title="Ya hay entradas registradas"':''}>Separar integrantes</button>`:''}`;
+    const whatsapp=InvitationShare.whatsappUrl(link,phone);
+    const actions=`<button class="btn" data-copy-message="${safe(link)}">Copiar mensaje</button><button class="btn" data-copy="${safe(link)}">Solo enlace</button><a class="btn" href="${safe(link)}" target="_blank" rel="noopener">Abrir RSVP</a><a class="btn" href="${safe(whatsapp)}" target="_blank" rel="noopener noreferrer">WhatsApp</a><button class="btn" data-add-members="${safe(group.id)}" ${checked||needsReview||peopleInGroup>=100?'disabled title="Revisa esta invitación o sus entradas antes de editar"':''}>Agregar personas</button><button class="btn" data-sent="${safe(group.id)}" data-value="${group.sent_at?'false':'true'}">${group.sent_at?'Desmarcar envío':'Marcar enviada'}</button><button class="btn warn" data-rotate="${safe(group.id)}">Regenerar enlace</button>${group.group_type!=='individual'?`<button class="btn warn" data-split="${safe(group.id)}" ${checked?'disabled title="Ya hay entradas registradas"':''}>Separar integrantes</button>`:''}`;
     const qr=confirmed&&!needsReview
       ? `<div class="qr-row"><img loading="lazy" src="/api/qr?token=${encodeURIComponent(group.token)}" alt="Pase QR para ${safe(group.display_name)}"><p>${confirmed} confirmada${confirmed===1?'':'s'} · ${pendingCount} pendiente${pendingCount===1?'':'s'}<br><a href="/api/qr?token=${encodeURIComponent(group.token)}" download="pase-${safe(group.display_name.replace(/\s+/g,'-'))}.png">Descargar pase</a></p></div>`
       : `<div class="qr-row"><p>${needsReview?'Revisión necesaria: este registro antiguo aún incluye cupos sin identificar. No se emite QR hasta aclararlo.':`${confirmed} confirmada${confirmed===1?'':'s'} · ${declined} no asistirán · ${pendingCount} pendiente${pendingCount===1?'':'s'}. El pase aparecerá cuando alguien confirme.`}</p></div>`;
@@ -219,6 +218,7 @@ function renderGroups(){
     focusInvitation=null;
   }
   document.querySelectorAll('[data-copy]').forEach(button=>button.onclick=async()=>{try{await navigator.clipboard.writeText(button.dataset.copy);notify('Enlace copiado.');}catch{window.prompt('Copia el enlace:',button.dataset.copy);}});
+  document.querySelectorAll('[data-copy-message]').forEach(button=>button.onclick=async()=>{const text=InvitationShare.message(button.dataset.copyMessage);try{await navigator.clipboard.writeText(text);notify('Mensaje y enlace copiados. Listos para compartir.');}catch{window.prompt('Copia el mensaje:',text);}});
   document.querySelectorAll('[data-add-members]').forEach(button=>button.onclick=()=>openMemberEditor(button.dataset.addMembers));
   document.querySelectorAll('[data-drop-group]').forEach(target=>{
     target.addEventListener('dragover',event=>{event.preventDefault();target.classList.add('drop-over');});
