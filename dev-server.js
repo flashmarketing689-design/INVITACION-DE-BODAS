@@ -26,6 +26,7 @@ const ROOT = __dirname;
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const PUBLIC_FILES = new Set([
   'index.html', 'invitados.html', 'admin.html', 'invitaciones.html', 'recepcion.html',
+  'admin-shell.css', 'admin-shell.js',
   'favicon.svg', 'foto-pareja.jpg', 'musica-boda.mp3', 'vendor/zxing-browser.min.js',
 ]);
 
@@ -142,10 +143,13 @@ function serveStatic(req, res, pathname) {
     }
     const ext = path.extname(file).toLowerCase();
     const isHtml = ext === '.html';
+    const isAdminShellAsset = /^admin-shell\.(css|js)$/i.test(publicName);
     const headers = {
       'Content-Type': MIME[ext] || 'application/octet-stream',
-      // Igual que vercel.json: HTML must-revalidate, assets immutable, APIs no-store
-      'Cache-Control': isHtml ? 'public, max-age=0, must-revalidate' : 'public, max-age=31536000, immutable',
+      // HTML and shared admin-shell files revalidate; other static assets are immutable.
+      'Cache-Control': isHtml || isAdminShellAsset
+        ? 'public, max-age=0, must-revalidate'
+        : 'public, max-age=31536000, immutable',
       'X-Content-Type-Options': 'nosniff',
     };
     if (req.method === 'HEAD') { res.writeHead(200, headers); res.end(); return; }

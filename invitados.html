@@ -272,9 +272,12 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
 }
 @media(max-width:420px){
   .stats{grid-template-columns:1fr 1fr;}
-  .filter-group{display:none;}
+  .filter-group{max-width:100%;overflow-x:auto;flex-wrap:nowrap;padding-bottom:.25rem;}
+  .filter-group .f-btn{flex:0 0 auto;}
 }
 </style>
+<link rel="stylesheet" href="/admin-shell.css?v=2" />
+<script src="/admin-shell.js?v=2" defer></script>
 </head>
 <body>
 
@@ -363,7 +366,7 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
   </div>
 
   <!-- Toolbar -->
-  <div class="toolbar">
+  <div class="toolbar" id="invitados-filtros">
     <div class="search-wrap">
       <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
       <input type="text" id="search-input" placeholder="Buscar por nombre…" />
@@ -386,7 +389,7 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
   </div>
 
   <!-- Owner tabs -->
-  <div class="owner-tabs">
+  <div class="owner-tabs" id="listas-invitados">
     <button class="o-tab active" data-owner="all">Todos</button>
     <button class="o-tab" data-owner="novio">Lista del Novio</button>
     <button class="o-tab novia" data-owner="novia">Lista de la Novia</button>

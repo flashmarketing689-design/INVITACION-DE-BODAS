@@ -1,7 +1,8 @@
--- Adds individually identified guests to an existing invitation atomically.
--- Existing RSVP rows remain tied to each guest. The invitation and QR tokens
--- rotate so an old shared link cannot be used after its membership changes.
-
+-- Migration 008: repair the runtime ambiguity in add_invitation_members.
+-- group_type is both an OUT parameter and an invitations column; all column
+-- references in the affected UPDATE must be qualified with the table alias.
+-- Run after 007. Safe to rerun: replaces only the function and its existing
+-- grants. Does not insert, delete, regroup guests, or rotate any current token.
 create or replace function public.add_invitation_members(
   p_invitation_id uuid,
   p_guest_ids bigint[] default '{}',

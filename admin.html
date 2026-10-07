@@ -396,6 +396,8 @@ tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
   .topbar-actions .btn-sm span { display: none; }
 }
 </style>
+<link rel="stylesheet" href="/admin-shell.css?v=2" />
+<script src="/admin-shell.js?v=2" defer></script>
 </head>
 <body>
 
@@ -481,7 +483,7 @@ tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
   </div>
 
   <!-- Capacity bar -->
-  <div class="capacity-bar-wrap">
+  <div class="capacity-bar-wrap" id="capacidad-evento">
     <div class="cap-header">
       <span class="cap-title">Capacidad del evento · personas confirmadas</span>
       <span class="cap-pct" id="cap-pct">0%</span>
@@ -492,7 +494,7 @@ tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
   </div>
 
   <!-- Filters + Search -->
-  <div class="filters">
+  <div class="filters" id="filtros-rsvp">
     <button class="filter-btn active" data-filter="all">Todos</button>
     <button class="filter-btn" data-filter="confirmado">Asistirán</button>
     <button class="filter-btn" data-filter="no_asiste">No asistirán</button>
@@ -504,7 +506,7 @@ tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
   </div>
 
   <!-- Table -->
-  <div class="table-card">
+  <div class="table-card" id="respuestas">
     <div class="table-scroll">
       <table id="rsvp-table">
         <thead>
