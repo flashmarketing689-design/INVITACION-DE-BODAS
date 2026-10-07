@@ -396,6 +396,52 @@ test('pareja comparte un enlace, conserva respuestas individuales y revoca sus e
   assert.equal(obsoleteTicket.statusCode, 404, 'el QR anterior no revive al reconfirmar');
 });
 
+test('lista de personas conserva su grupo al editar, marcar envío, ampliar y separar', async () => {
+  resetData();
+  const cookie = await loginAdmin();
+  const first = await createGuest(cookie, { nombre: 'Persona Uno', cantidad_personas: 1, pertenece: 'novia' });
+  const second = await createGuest(cookie, { nombre: 'Persona Dos', cantidad_personas: 1, pertenece: 'novio', categoria: 'amigos' });
+  const third = await createGuest(cookie, { nombre: 'Persona Tres', cantidad_personas: 1 });
+  const grouped = await groupGuests(cookie, [first.id, second.id], 'couple');
+  assert.equal(grouped.statusCode, 201);
+  const list = async () => {
+    const res = createRes();
+    await guestsHandler(createReq({ url: '/api/guests', headers: { cookie } }), res);
+    assert.equal(res.statusCode, 200);
+    return res.body;
+  };
+  let rows = await list();
+  assert.equal(rows.filter((row) => row.invitation_type === 'individual').length, 1);
+  assert.ok(rows.filter((row) => row.id !== third.id).every((row) =>
+    row.invitation_people_count === 2 && row.invitation_members.length === 2
+      && row.invitation_token === grouped.body.token));
+  const edited = createRes();
+  await guestsHandler(createReq({ method: 'PUT', url: '/api/guests', headers: { cookie },
+    body: { id: first.id, nombre: 'Persona Renombrada', pertenece: 'novia', categoria: 'familiares', cantidad_personas: 1 },
+  }), edited);
+  assert.equal(edited.statusCode, 200);
+  const sent = createRes();
+  await guestsHandler(createReq({ method: 'PATCH', url: '/api/guests', headers: { cookie },
+    body: { action: 'marcar_enviada', guest_id: second.id, value: true },
+  }), sent);
+  assert.equal(sent.statusCode, 200);
+  rows = await list();
+  assert.ok(rows.filter((row) => row.id !== third.id).every((row) => row.invitation_type === 'couple'
+    && row.invitacion_enviada && row.invitation_members.some((member) => member.nombre === 'Persona Renombrada')));
+  const expanded = await addInvitationMembers(cookie, grouped.body.id, { guest_ids: [third.id] });
+  assert.equal(expanded.statusCode, 200);
+  rows = await list();
+  assert.ok(rows.every((row) => row.invitation_type === 'family' && row.invitation_people_count === 3));
+  const split = createRes();
+  await invitationsHandler(createReq({ method: 'POST', url: '/api/invitations?action=split', headers: { cookie },
+    body: { invitation_id: grouped.body.id },
+  }), split);
+  assert.equal(split.statusCode, 200);
+  rows = await list();
+  assert.ok(rows.every((row) => row.invitation_type === 'individual' && row.invitation_member_count === 1));
+  assert.equal(new Set(rows.map((row) => row.invitation_id)).size, 3);
+});
+
 test('dos teléfonos registran el mismo pase sin duplicar una entrada', async () => {
   resetData();
   const adminCookie = await loginAdmin();

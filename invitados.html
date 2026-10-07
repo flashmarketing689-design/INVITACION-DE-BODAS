@@ -275,6 +275,15 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
   .filter-group{max-width:100%;overflow-x:auto;flex-wrap:nowrap;padding-bottom:.25rem;}
   .filter-group .f-btn{flex:0 0 auto;}
 }
+.invitation-filter-bar{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;margin:0 0 1rem;padding:1rem;background:var(--white);border:1px solid rgba(90,122,92,.18);border-radius:14px;scroll-margin-top:130px;}
+.invitation-filter-bar strong{font-size:.8rem;}.invitation-filter-bar .f-btn{font-size:.78rem;min-height:40px;}
+.invitation-filter-bar .filter-group{flex-wrap:wrap;overflow:visible;}
+.invitation-filter-bar>a{margin-left:auto;font-size:.8rem;color:var(--green);font-weight:600;}
+.invitation-filter-note{width:100%;margin:0;color:var(--text-soft);font-size:.76rem;line-height:1.6;}
+.guest-card.is-grouped{border-color:#92af95;}.invitation-kind{font-weight:600;color:var(--green);}
+.card-invitation-group{background:#edf3ec;border:1px solid #d8e5d7;border-radius:12px;padding:.8rem;font-size:.78rem;line-height:1.6;}
+.card-invitation-group strong{display:block;}.card-invitation-group p{margin:.3rem 0;overflow-wrap:anywhere;}
+.card-invitation-group a{display:inline-block;margin-top:.3rem;color:#315a35;font-weight:600;}
 </style>
 <link rel="stylesheet" href="/admin-shell.css?v=2" />
 <script src="/admin-shell.js?v=2" defer></script>
@@ -358,10 +367,10 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
   <!-- Stats -->
   <div class="stats" id="stats-row">
     <div class="stat-card dark"><div class="stat-label">Total invitados</div><div class="stat-value" id="s-total">0</div><div class="stat-sub">registros</div></div>
-    <div class="stat-card green"><div class="stat-label">Del novio</div><div class="stat-value" id="s-novio">0</div><div class="stat-sub">invitaciones</div></div>
-    <div class="stat-card gold"><div class="stat-label">De la novia</div><div class="stat-value" id="s-novia">0</div><div class="stat-sub">invitaciones</div></div>
-    <div class="stat-card green"><div class="stat-label">Enviadas</div><div class="stat-value" id="s-sent">0</div><div class="stat-sub">invitaciones</div></div>
-    <div class="stat-card red"><div class="stat-label">Pendientes de envío</div><div class="stat-value" id="s-pending">0</div><div class="stat-sub">por enviar</div></div>
+    <div class="stat-card green"><div class="stat-label">Del novio</div><div class="stat-value" id="s-novio">0</div><div class="stat-sub">invitados</div></div>
+    <div class="stat-card gold"><div class="stat-label">De la novia</div><div class="stat-value" id="s-novia">0</div><div class="stat-sub">invitados</div></div>
+    <div class="stat-card green"><div class="stat-label">Enviadas</div><div class="stat-value" id="s-sent">0</div><div class="stat-sub">invitaciones únicas</div></div>
+    <div class="stat-card red"><div class="stat-label">Pendientes de envío</div><div class="stat-value" id="s-pending">0</div><div class="stat-sub">invitaciones únicas</div></div>
     <div class="stat-card purple"><div class="stat-label">Total de personas</div><div class="stat-value" id="s-people">0</div><div class="stat-sub">incluyendo grupos</div></div>
   </div>
 
@@ -369,7 +378,7 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
   <div class="toolbar" id="invitados-filtros">
     <div class="search-wrap">
       <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-      <input type="text" id="search-input" placeholder="Buscar por nombre…" />
+      <input type="search" id="search-input" aria-label="Buscar persona, grupo o teléfono" placeholder="Buscar persona, grupo o teléfono…" />
     </div>
     <div class="filter-group" id="cat-filters">
       <button class="f-btn active" data-cat="all">Todos</button>
@@ -386,6 +395,19 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
       <button class="f-btn" data-status="confirmado">Confirmados</button>
       <button class="f-btn" data-status="no_asiste">No asistirán</button>
     </div>
+  </div>
+
+  <div class="invitation-filter-bar" id="invitation-filters" role="group" aria-label="Tipo de invitación">
+    <strong>Tipo de invitación</strong>
+    <div class="filter-group">
+      <button type="button" class="f-btn active" data-invite-type="all" aria-pressed="true">Todas</button>
+      <button type="button" class="f-btn" data-invite-type="individual" aria-pressed="false">Individuales</button>
+      <button type="button" class="f-btn" data-invite-type="grouped" aria-pressed="false">Grupales</button>
+      <button type="button" class="f-btn" data-invite-type="couple" aria-pressed="false">Parejas</button>
+      <button type="button" class="f-btn" data-invite-type="family" aria-pressed="false">Familias</button>
+    </div>
+    <a href="invitaciones.html?type=grouped#grupos-invitacion">Ver solo invitaciones grupales →</a>
+    <p class="invitation-filter-note" id="invitation-filter-note" role="status">Cada tarjeta corresponde a una persona. Las parejas y familias comparten una sola invitación.</p>
   </div>
 
   <!-- Owner tabs -->
@@ -602,6 +624,7 @@ let currentOwner  = 'all';
 let currentCat    = 'all';
 let currentStatus = 'all';
 let currentSearch = '';
+let currentInvitationType = 'all';
 let editingId = null;
 let linkModalGuestId = null;
 let guestsLoadError = null;
@@ -686,6 +709,18 @@ async function loadGuests(){
     showToast('No se pudo cargar la lista: ' + e.message);
   }
 }
+
+// Refresh membership when returning from the invitation editor in another tab
+// or from the browser back/forward cache. Do not interrupt an open form.
+let refreshingGuestList = false;
+async function refreshGuestMembership(){
+  if(refreshingGuestList || document.hidden || !loginScreen.classList.contains('hide')
+    || document.querySelector('#modal-overlay.show, #import-overlay.show, #link-overlay.show, #confirm-dialog.show')) return;
+  refreshingGuestList = true;
+  try { await loadGuests(); renderAll(); } finally { refreshingGuestList = false; }
+}
+window.addEventListener('pageshow', event=>{ if(event.persisted) refreshGuestMembership(); });
+document.addEventListener('visibilitychange', refreshGuestMembership);
 
 function guestLink(g){
   return new URL('/?guest=' + encodeURIComponent(g.invitation_token || g.token), location.origin).href;
@@ -971,11 +1006,22 @@ function renderAll(){
   renderSections();
 }
 
+function isSharedInvitation(g){ return ['couple','family'].includes(g.invitation_type); }
+function invitationTypeMatches(g, type){
+  return type === 'all' || (type === 'grouped' ? isSharedInvitation(g) : (g.invitation_type || 'individual') === type);
+}
+function searchText(value){ return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es').trim(); }
+function invitationPeople(g){ return Number(g.invitation_people_count) || Number(g.cantidad_personas) || 1; }
+function uniqueInvitations(list){
+  return [...new Map(list.map(g=>[g.invitation_id || `guest-${g.id}`, g])).values()];
+}
+
 function renderStats(){
   const novio   = guests.filter(g=>g.pertenece==='novio');
   const novia   = guests.filter(g=>g.pertenece==='novia');
-  const sent    = guests.filter(g=>g.invitacion_enviada);
-  const pending = guests.filter(g=>!g.invitacion_enviada);
+  const invitations = uniqueInvitations(guests);
+  const sent    = invitations.filter(g=>g.invitacion_enviada);
+  const pending = invitations.filter(g=>!g.invitacion_enviada);
   const people  = guests.reduce((s,g)=>s+(parseInt(g.cantidad_personas)||1), 0);
 
   document.getElementById('s-total').textContent   = guests.length;
@@ -987,11 +1033,12 @@ function renderStats(){
 }
 
 function renderSections(){
-  let filtered = guests;
+  let filtered = guests.filter(g=>invitationTypeMatches(g, currentInvitationType));
 
   if(currentSearch){
-    const q = currentSearch.toLowerCase();
-    filtered = filtered.filter(g=>(g.nombre||'').toLowerCase().includes(q) || (g.telefono||'').toLowerCase().includes(q));
+    const q = searchText(currentSearch);
+    filtered = filtered.filter(g=>searchText([g.nombre, g.telefono, g.invitation_name,
+      ...(g.invitation_members || []).map(member=>member.nombre)].join(' ')).includes(q));
   }
   if(currentCat !== 'all') filtered = filtered.filter(g=>g.categoria===currentCat);
   if(currentStatus !== 'all'){
@@ -1004,6 +1051,10 @@ function renderSections(){
 
   const novioGuests = filtered.filter(g=>g.pertenece==='novio');
   const noviaGuests = filtered.filter(g=>g.pertenece==='novia');
+  const visible = currentOwner === 'novio' ? novioGuests : currentOwner === 'novia' ? noviaGuests : filtered;
+  const visibleInvitations = uniqueInvitations(visible);
+  const groupCount = visibleInvitations.filter(isSharedInvitation).length;
+  document.getElementById('invitation-filter-note').textContent = `${visible.length} registro${visible.length===1?' mostrado':'s mostrados'} · ${visibleInvitations.length} ${visibleInvitations.length===1?'invitación única':'invitaciones únicas'} · ${groupCount} ${groupCount===1?'grupal':'grupales'}. Cada tarjeta identifica a una persona; los integrantes de un grupo comparten el mismo enlace.`;
 
   const sNovio = document.getElementById('section-novio');
   const sNovia = document.getElementById('section-novia');
@@ -1065,10 +1116,13 @@ function createCard(g, cat){
   const sentDate  = g.fecha_invitacion_enviada ? new Date(g.fecha_invitacion_enviada).toLocaleDateString('es-DO',{day:'2-digit',month:'short'}) : '';
   const st        = effectiveState(g);
   const hasPhone  = Boolean(g.telefono);
+  const shared = isSharedInvitation(g);
+  const invitationType = g.invitation_type === 'couple' ? 'Pareja' : 'Familia';
 
   const card = document.createElement('div');
-  card.className = 'guest-card';
+  card.className = 'guest-card' + (shared ? ' is-grouped' : '');
   card.dataset.id = g.id;
+  card.dataset.invitationType = g.invitation_type || 'individual';
 
   const rsvpClass = st === 'confirmado' ? 'confirmado' : st === 'no_asiste' ? 'no_asiste' : st === 'enviada' ? 'enviada' : 'pendiente';
   const rsvpIcon  = st === 'confirmado'
@@ -1089,26 +1143,27 @@ function createCard(g, cat){
             ${g.pertenece==='novio'?'Novio':'Novia'}
           </span>
         </div>
-        <div class="card-people">${cantidad} persona${cantidad!==1?'s':''}</div>
+        <div class="card-people invitation-kind">${shared ? `${invitationType} · ${invitationPeople(g)} personas en la invitación` : cantidad > 1 ? `Cupo antiguo · ${cantidad} personas por identificar` : 'Invitación individual · 1 persona'}</div>
       </div>
     </div>
     ${g.telefono ? `<div class="card-phone"><svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>${esc(g.telefono)}</div>` : ''}
+    ${shared ? `<div class="card-invitation-group"><strong>Invitación grupal · ${esc(g.invitation_name)}</strong><p>${(g.invitation_members || []).map(member=>esc(member.nombre)).join(' · ')}</p><a href="invitaciones.html?type=grouped&amp;invitation=${encodeURIComponent(g.invitation_id)}#grupos-invitacion">Ver esta invitación grupal →</a></div>` : ''}
     <div class="card-rsvp ${rsvpClass}">${rsvpIcon}${RSVP_LABELS[st] || RSVP_LABELS.pendiente}</div>
     ${g.notas ? `<div class="card-notes">${esc(g.notas)}</div>` : ''}
     <div class="card-toggle">
-      <span class="toggle-label">Invitación enviada</span>
+      <span class="toggle-label">${shared ? 'Invitación grupal enviada' : 'Invitación enviada'}</span>
       <label class="switch">
-        <input type="checkbox" class="sent-toggle" data-id="${g.id}" ${g.invitacion_enviada?'checked':''} />
+        <input type="checkbox" class="sent-toggle" data-id="${g.id}" aria-label="Marcar como enviada: ${esc(shared ? g.invitation_name : g.nombre)}" ${g.invitacion_enviada?'checked':''} />
         <span class="slider"></span>
       </label>
       ${sentDate ? `<span class="sent-date">${sentDate}</span>` : ''}
     </div>
     <div class="card-actions">
-      <button class="act-btn act-copy" data-id="${g.id}" title="Copiar el enlace personal de esta invitación">
+      <button class="act-btn act-copy" data-id="${g.id}" title="${shared ? 'Copiar el enlace compartido de todo el grupo' : 'Copiar el enlace individual'}">
         <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-        Copiar invitación
+        ${shared ? 'Copiar enlace grupal' : 'Copiar invitación'}
       </button>
-      <button class="act-btn act-link" data-id="${g.id}" title="Ver y copiar enlace personal">
+      <button class="act-btn act-link" data-id="${g.id}" title="${shared ? 'Ver el enlace compartido' : 'Ver el enlace individual'}">
         <svg viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>
         Ver enlace
       </button>
@@ -1136,7 +1191,7 @@ function createCard(g, cat){
   /* Copiar invitación personalizada */
   card.querySelector('.act-copy').addEventListener('click', async ()=>{
     const ok = await copyToClipboard(guestLink(g));
-    showToast(ok ? 'Enlace personal copiado.' : 'No se pudo copiar; abre el enlace para copiarlo manualmente.');
+    showToast(ok ? (shared ? 'Enlace grupal copiado.' : 'Enlace individual copiado.') : 'No se pudo copiar; abre el enlace para copiarlo manualmente.');
   });
   /* Enlace personal */
   card.querySelector('.act-link').addEventListener('click', ()=>{ openLinkModal(g.id); });
@@ -1156,12 +1211,11 @@ function createCard(g, cat){
 ============================================================ */
 async function toggleSent(id, value){
   try {
-    const updated = await api('/api/guests', {
+    await api('/api/guests', {
       method: 'PATCH',
       body: JSON.stringify({ action:'marcar_enviada', guest_id: id, value })
     });
-    const idx = guests.findIndex(g=>g.id===id);
-    if (idx !== -1) guests[idx] = updated;
+    await loadGuests();
     renderAll();
     showToast(value ? 'Invitación marcada como enviada.' : 'Marcada como pendiente.');
   } catch(e) {
@@ -1178,7 +1232,7 @@ function openLinkModal(id){
   document.getElementById('link-modal-title').textContent = shared ? 'Enlace compartido' : 'Invitación personal';
   document.getElementById('link-modal-name').textContent = g.invitation_name || g.nombre;
   document.getElementById('link-modal-description').textContent = shared
-    ? 'Enlace de uso compartido para todas las personas que aparecen en esta invitación. Si reenvías el enlace, todas las respuestas del grupo se gestionan desde ahí.'
+    ? `${g.invitation_name} · ${invitationPeople(g)} personas: ${(g.invitation_members || []).map(member=>member.nombre).join(', ')}. Este es el mismo enlace compartido para todo el grupo; cada integrante confirma su asistencia por separado.`
     : 'Enlace individual de esta persona. Compártelo únicamente con el invitado registrado.';
   document.getElementById('link-modal-code').textContent = guestLink(g);
   document.getElementById('link-open-btn').href = guestLink(g);
@@ -1232,7 +1286,9 @@ document.getElementById('link-regen-btn').addEventListener('click', ()=>{
   if (!g) return;
   showConfirm(
     'Regenerar enlace',
-    `¿Regenerar el enlace de "${g.nombre}"? El enlace actual dejará de funcionar y deberás enviarle el nuevo.`,
+    isSharedInvitation(g)
+      ? `¿Regenerar el enlace de "${g.invitation_name}"? Cambiará para las ${invitationPeople(g)} personas del grupo. El enlace y QR anteriores dejarán de funcionar y tendrás que compartir el nuevo.`
+      : `¿Regenerar el enlace de "${g.nombre}"? El enlace actual dejará de funcionar y deberás enviarle el nuevo.`,
     'Regenerar',
     async ()=>{
       try {
@@ -1360,16 +1416,14 @@ async function saveGuest(){
 
   try {
     if (editingId) {
-      const updated = await api('/api/guests', { method:'PUT', body: JSON.stringify({ ...payload, id: editingId }) });
-      const idx = guests.findIndex(g=>g.id===editingId);
-      if (idx !== -1) guests[idx] = updated;
+      await api('/api/guests', { method:'PUT', body: JSON.stringify({ ...payload, id: editingId }) });
       showToast('Invitado actualizado correctamente.');
     } else {
-      const created = await api('/api/guests', { method:'POST', body: JSON.stringify(payload) });
-      guests.push(created);
+      await api('/api/guests', { method:'POST', body: JSON.stringify(payload) });
       showToast('Invitado creado con su enlace único.');
     }
     closeModal();
+    await loadGuests();
     renderAll();
   } catch(e) {
     showToast('No se pudo guardar: ' + e.message);
@@ -1396,7 +1450,7 @@ function confirmDelete(id, nombre){
     async ()=>{
       try {
         await api('/api/guests', { method:'DELETE', body: JSON.stringify({ id }) });
-        guests = guests.filter(g=>g.id!==id);
+        await loadGuests();
         renderAll();
         showToast('Invitado quitado de la lista; su historial se conservó.');
       } catch(e) {
@@ -1409,6 +1463,17 @@ function confirmDelete(id, nombre){
 /* ============================================================
    FILTROS
 ============================================================ */
+document.querySelectorAll('[data-invite-type]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    currentInvitationType = btn.dataset.inviteType;
+    document.querySelectorAll('[data-invite-type]').forEach(button=>{
+      const active = button === btn;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+    renderAll();
+  });
+});
 document.querySelectorAll('[data-cat]').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('[data-cat]').forEach(b=>b.classList.remove('active'));
@@ -1443,7 +1508,7 @@ document.getElementById('search-input').addEventListener('input', e=>{
 ============================================================ */
 document.getElementById('export-btn').addEventListener('click', ()=>{
   if(!guests.length){ showToast('No hay invitados para exportar.'); return; }
-  const header = ['#','Nombre','Pertenece','Categoría','Cantidad','Teléfono','Enviada','Fecha Envío','Estado RSVP','Enlace personal','Notas'];
+  const header = ['#','Nombre','Pertenece','Categoría','Cantidad','Teléfono','Enviada','Fecha Envío','Estado RSVP','Enlace de invitación','Notas'];
   const rows = guests.map((g,i)=>[
     i+1,
     `"${(g.nombre||'').replace(/"/g,'""')}"`,

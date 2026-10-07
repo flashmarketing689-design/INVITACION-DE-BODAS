@@ -25,6 +25,7 @@ const {
 const { supabase, supabaseConfigured } = require('../lib/supabaseClient');
 const { allowRequest, clientIp } = require('../lib/rateLimit');
 const { getLocalInvitations, saveLocalInvitations, ensureLocalSingletons, isMissingMigration } = require('../lib/invitations');
+const { guestInvitationDetails } = require('../lib/guestInvitationDetails');
 
 /* ─── Store local (fallback dev) ─── */
 const DATA_DIR = path.join(__dirname, '..', 'data');
@@ -292,14 +293,14 @@ module.exports = async function handler(req, res) {
         return;
       }
       try {
-        res.status(200).json(await decorateGuests(data || []));
+        res.status(200).json(guestInvitationDetails(await decorateGuests(data || [])));
       } catch (decorateError) {
         console.error('Guest invitation lookup error:', decorateError.message);
         res.status(500).json({ error: 'Error leyendo invitaciones asociadas' });
       }
       return;
     }
-    res.status(200).json(await decorateGuests(readLocalGuests().filter((g) => !g.archived_at)));
+    res.status(200).json(guestInvitationDetails(await decorateGuests(readLocalGuests().filter((g) => !g.archived_at))));
     return;
   }
 
