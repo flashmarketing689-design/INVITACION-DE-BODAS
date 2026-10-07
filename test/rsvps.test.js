@@ -17,6 +17,7 @@ const GUESTS_FILE = path.join(DATA_DIR, 'guests.json');
 const LOCAL_RSVPS = path.join(DATA_DIR, 'rsvp_respuestas_local.json');
 const LOCAL_INVITATIONS = path.join(DATA_DIR, 'invitations_local.json');
 const LOCAL_CHECKINS = path.join(DATA_DIR, 'invitation_checkins_local.json');
+let loginAttemptId = 0;
 
 function createRes() {
   const res = {};
@@ -51,6 +52,7 @@ async function loginAdmin() {
     method: 'POST',
     url: '/api/guests?action=login',
     body: { password: 'test-admin-pass' },
+    headers: { 'x-forwarded-for': `test-login-${++loginAttemptId}` },
   }), res);
   assert.equal(res.statusCode, 200);
   const cookie = res.headers['Set-Cookie'].split(';')[0];
@@ -132,6 +134,16 @@ test('guests API rechaza CRUD sin sesión admin', async () => {
   resetData();
   const res = createRes();
   await guestsHandler(createReq({ method: 'GET', url: '/api/guests' }), res);
+  assert.equal(res.statusCode, 401);
+});
+
+test('renombrar invitado requiere sesión admin', async () => {
+  resetData();
+  const res = createRes();
+  await guestsHandler(createReq({
+    method: 'PATCH', url: '/api/guests',
+    body: { action: 'renombrar', guest_id: 1001, nombre: 'Ana Pérez' },
+  }), res);
   assert.equal(res.statusCode, 401);
 });
 
@@ -420,6 +432,155 @@ test('familia comparte un pase para sus integrantes y una pareja exige dos perso
   assert.equal(rejectedCouple.statusCode, 400);
 });
 
+test('editar nombre conserva RSVP y pase compartido y actualiza el nombre de la pareja', async () => {
+  resetData();
+  const cookie = await loginAdmin();
+  const first = await createGuest(cookie, { nombre: 'Starlin Pérez', cantidad_personas: 1 });
+  const second = await createGuest(cookie, { nombre: 'Reneisy Charles', cantidad_personas: 1 });
+  const grouped = await groupGuests(cookie, [first.id, second.id], 'couple');
+  assert.equal(grouped.statusCode, 201, JSON.stringify(grouped.body));
+  const member = grouped.body.members.find((row) => String(row.guest_id) === String(first.id));
+  const originalPass = grouped.body.pass_token;
+  const beforeRows = JSON.parse(fs.readFileSync(GUESTS_FILE, 'utf8'));
+  const originalMemberToken = beforeRows.find((row) => String(row.id) === String(first.id)).token;
+
+  const response = await confirmMembers(grouped.body.token, [
+    { member_id: member.member_id, estado: 'confirmado' },
+  ]);
+  assert.equal(response.statusCode, 200);
+
+  const renamed = createRes();
+  await guestsHandler(createReq({
+    method: 'PATCH', url: '/api/guests',
+    body: { action: 'renombrar', guest_id: first.id, nombre: 'Starlin Paulino' },
+    headers: { cookie },
+  }), renamed);
+  assert.equal(renamed.statusCode, 200, JSON.stringify(renamed.body));
+  assert.equal(renamed.body.nombre, 'Starlin Paulino');
+  assert.equal(renamed.body.token, originalMemberToken);
+
+  const publicInvite = createRes();
+  await guestHandler(createReq({ method: 'GET', url: `/api/guest?token=${grouped.body.token}` }), publicInvite);
+  assert.equal(publicInvite.statusCode, 200);
+  assert.equal(publicInvite.body.guest.nombre, 'Starlin Paulino y Reneisy Charles');
+  const updatedMember = publicInvite.body.guest.members.find((row) => row.member_id === member.member_id);
+  assert.equal(updatedMember.nombre, 'Starlin Paulino');
+  assert.equal(updatedMember.estado_rsvp, 'confirmado');
+
+  const receptionCookie = await loginReception();
+  const ticket = createRes();
+  await checkinHandler(createReq({
+    method: 'GET', url: `/api/checkin?ticket=${originalPass}`, headers: { cookie: receptionCookie },
+  }), ticket);
+  assert.equal(ticket.statusCode, 200);
+  assert.equal(ticket.body.invitation.display_name, 'Starlin Paulino y Reneisy Charles');
+  assert.equal(ticket.body.members.find((row) => row.member_id === member.member_id).nombre, 'Starlin Paulino');
+});
+
+test('editar nombre de un integrante conserva el nombre personalizado de la invitación familiar', async () => {
+  resetData();
+  const cookie = await loginAdmin();
+  const first = await createGuest(cookie, { nombre: 'Ana García', cantidad_personas: 1 });
+  const second = await createGuest(cookie, { nombre: 'Luis García', cantidad_personas: 1 });
+  const family = await groupGuests(cookie, [first.id, second.id], 'family', 'Familia García');
+  assert.equal(family.statusCode, 201, JSON.stringify(family.body));
+  const firstMember = family.body.members.find((member) => String(member.guest_id) === String(first.id));
+
+  const renamed = createRes();
+  await guestsHandler(createReq({
+    method: 'PATCH', url: '/api/guests',
+    body: { action: 'renombrar', guest_id: first.id, nombre: 'Ana Martínez' },
+    headers: { cookie },
+  }), renamed);
+  assert.equal(renamed.statusCode, 200, JSON.stringify(renamed.body));
+
+  const invite = createRes();
+  await guestHandler(createReq({ method: 'GET', url: `/api/guest?token=${family.body.token}` }), invite);
+  assert.equal(invite.statusCode, 200);
+  assert.equal(invite.body.guest.nombre, 'Familia García');
+  assert.equal(invite.body.guest.members.find((member) => member.member_id === firstMember.member_id).nombre, 'Ana Martínez');
+});
+
+test('el cupo de 150 rechaza una confirmación que excede el límite sin guardar respuestas parciales', async () => {
+  resetData();
+  const existingGuests = Array.from({ length: 149 }, (_, index) => ({
+    id: index + 1,
+    nombre: `Invitado ${index + 1}`,
+    telefono: null,
+    pertenece: 'novio',
+    categoria: 'familiares',
+    cantidad_personas: 1,
+    token: `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+  }));
+  const confirmedRows = existingGuests.map((guest) => ({
+    id: guest.id,
+    guest_id: guest.id,
+    estado: 'confirmado',
+    fecha_respuesta: new Date().toISOString(),
+  }));
+  fs.writeFileSync(GUESTS_FILE, JSON.stringify(existingGuests), 'utf8');
+  fs.writeFileSync(LOCAL_RSVPS, JSON.stringify(confirmedRows), 'utf8');
+
+  const cookie = await loginAdmin();
+  const first = await createGuest(cookie, { nombre: 'María García', cantidad_personas: 1 });
+  const second = await createGuest(cookie, { nombre: 'Luis García', cantidad_personas: 1 });
+  const grouped = await groupGuests(cookie, [first.id, second.id], 'couple');
+  assert.equal(grouped.statusCode, 201, JSON.stringify(grouped.body));
+
+  const result = await confirmMembers(grouped.body.token, grouped.body.members.map((member) => ({
+    member_id: member.member_id,
+    estado: 'confirmado',
+  })));
+  assert.equal(result.statusCode, 409);
+  assert.match(result.body.error, /150 personas/);
+  assert.equal(JSON.parse(fs.readFileSync(LOCAL_RSVPS, 'utf8')).length, 149);
+});
+
+test('el cupo permite llegar a 150 y rechaza la siguiente persona', async () => {
+  resetData();
+  const existingGuests = Array.from({ length: 148 }, (_, index) => ({
+    id: index + 1,
+    nombre: `Invitado ${index + 1}`,
+    telefono: null,
+    pertenece: 'novio',
+    categoria: 'familiares',
+    cantidad_personas: 1,
+    token: `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+  }));
+  const confirmedRows = existingGuests.map((guest) => ({
+    id: guest.id,
+    guest_id: guest.id,
+    estado: 'confirmado',
+    fecha_respuesta: new Date().toISOString(),
+  }));
+  fs.writeFileSync(GUESTS_FILE, JSON.stringify(existingGuests), 'utf8');
+  fs.writeFileSync(LOCAL_RSVPS, JSON.stringify(confirmedRows), 'utf8');
+
+  const cookie = await loginAdmin();
+  const first = await createGuest(cookie, { nombre: 'María García', cantidad_personas: 1 });
+  const second = await createGuest(cookie, { nombre: 'Luis García', cantidad_personas: 1 });
+  const third = await createGuest(cookie, { nombre: 'Eva García', cantidad_personas: 1 });
+  const couple = await groupGuests(cookie, [first.id, second.id], 'couple');
+  assert.equal(couple.statusCode, 201, JSON.stringify(couple.body));
+
+  const coupleResponse = await confirmMembers(couple.body.token, couple.body.members.map((member) => ({
+    member_id: member.member_id,
+    estado: 'confirmado',
+  })));
+  assert.equal(coupleResponse.statusCode, 200, JSON.stringify(coupleResponse.body));
+  assert.equal(JSON.parse(fs.readFileSync(LOCAL_RSVPS, 'utf8')).length, 150);
+
+  const individual = createRes();
+  await guestHandler(createReq({ method: 'GET', url: `/api/guest?token=${third.token}` }), individual);
+  assert.equal(individual.statusCode, 200);
+  const lastResponse = await confirmMembers(third.token, [{
+    member_id: individual.body.guest.members[0].member_id,
+    estado: 'confirmado',
+  }]);
+  assert.equal(lastResponse.statusCode, 409);
+  assert.equal(JSON.parse(fs.readFileSync(LOCAL_RSVPS, 'utf8')).length, 150);
+});
+
 /* ══════════ RSVP por token ══════════ */
 
 test('confirmar asistencia registra guest_id y estado del servidor', async () => {
@@ -574,4 +735,5 @@ test('admin stats reflejan confirmados y capacidad por personas', async () => {
   assert.equal(res.body.no_asistira, 1);
   assert.equal(res.body.pendientes, 0);
   assert.equal(res.body.total_invitados, 2);
+  assert.equal(res.body.max_guests, 150);
 });

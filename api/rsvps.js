@@ -26,6 +26,41 @@ const {
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const LOCAL_FILE = path.join(DATA_DIR, 'rsvp_respuestas_local.json');
+const RSVP_CAPACITY = 150;
+
+function isCapacityReached(error) {
+  return error?.code === '23514' && String(error.message || '').includes('wedding_capacity_reached');
+}
+
+function projectConfirmedPeople(guests, rsvps, changes) {
+  const activeGuests = new Map(guests.filter((guest) => !guest.archived_at)
+    .map((guest) => [String(guest.id), guest]));
+  const stateByGuest = new Map();
+  let total = 0;
+
+  for (const response of rsvps) {
+    const guestId = String(response.guest_id);
+    stateByGuest.set(guestId, response.estado);
+    const guest = activeGuests.get(guestId);
+    if (guest && response.estado === 'confirmado') total += Math.max(1, Number(guest.cantidad_personas) || 1);
+  }
+
+  for (const change of changes) {
+    const guestId = String(change.guest_id);
+    const guest = activeGuests.get(guestId);
+    if (!guest) continue;
+    const quantity = Math.max(1, Number(guest.cantidad_personas) || 1);
+    if (stateByGuest.get(guestId) === 'confirmado') total -= quantity;
+    if (change.estado === 'confirmado') total += quantity;
+    stateByGuest.set(guestId, change.estado);
+  }
+
+  return total;
+}
+
+function capacityErrorResponse(res) {
+  res.status(409).json({ error: 'El cupo máximo de 150 personas ya se alcanzó. Contacta a los anfitriones.' });
+}
 
 function readLocal() {
   try {
@@ -146,6 +181,7 @@ async function handleConfirm(req, res) {
     });
     if (error) {
       console.error('Grouped RSVP save error:', error.message);
+      if (isCapacityReached(error)) { capacityErrorResponse(res); return; }
       if (error.code === '22023' || error.code === '40001') {
         res.status(409).json({ error: 'La invitación cambió o una respuesta ya no pertenece a este grupo. Recarga la página.' });
         return;
@@ -167,6 +203,7 @@ async function handleConfirm(req, res) {
         return;
       }
     }
+    const targetRows = [];
     for (const response of responses) {
       const member = invitation.members.find((row) => row.member_id === response.member_id);
       const guestIndex = guests.findIndex((row) => String(row.id) === String(member?.guest_id));
@@ -174,7 +211,15 @@ async function handleConfirm(req, res) {
         res.status(409).json({ error: 'Una persona de la invitación ya no está activa. Recarga la página.' });
         return;
       }
-      const guest = guests[guestIndex];
+      targetRows.push({ response, member, guest: guests[guestIndex], guestIndex });
+    }
+    if (projectConfirmedPeople(guests, rows, targetRows.map(({ response, member }) => ({
+      guest_id: member.guest_id, estado: response.estado,
+    }))) > RSVP_CAPACITY) {
+      capacityErrorResponse(res);
+      return;
+    }
+    for (const { response, guest, guestIndex } of targetRows) {
       const idx = rows.findIndex((row) => String(row.guest_id) === String(guest.id));
       const record = {
         id: idx >= 0 ? rows[idx].id : rows.reduce((m, row) => Math.max(m, row.id || 0), 0) + 1,
@@ -248,6 +293,7 @@ async function handleLegacyConfirm(token, payload, res) {
       .upsert(respuesta, { onConflict: 'guest_id' }).select().single();
     if (error) {
       console.error('Legacy RSVP upsert error:', error.message);
+      if (isCapacityReached(error)) { capacityErrorResponse(res); return; }
       res.status(500).json({ error: 'No se pudo registrar tu respuesta' });
       return;
     }
@@ -256,6 +302,18 @@ async function handleLegacyConfirm(token, payload, res) {
     return;
   }
   const rows = readLocal();
+  const guestsFile = path.join(DATA_DIR, 'guests.json');
+  let guests;
+  try { guests = JSON.parse(fs.readFileSync(guestsFile, 'utf8')); }
+  catch (error) {
+    console.error('Could not read local guest records:', error.message);
+    res.status(500).json({ error: 'No se pudo registrar tu respuesta' });
+    return;
+  }
+  if (projectConfirmedPeople(guests, rows, [{ guest_id: guest.id, estado: decision }]) > RSVP_CAPACITY) {
+    capacityErrorResponse(res);
+    return;
+  }
   const idx = rows.findIndex((row) => String(row.guest_id) === String(guest.id));
   const now = new Date().toISOString();
   const record = {
@@ -266,22 +324,20 @@ async function handleLegacyConfirm(token, payload, res) {
   };
   if (idx >= 0) rows[idx] = { ...rows[idx], ...record };
   else rows.push(record);
-  writeLocal(rows);
-  if (decision !== 'confirmado') revokeLocalPassIfUnused(token, rows);
-  const guestsFile = path.join(DATA_DIR, 'guests.json');
   try {
-    const guests = JSON.parse(fs.readFileSync(guestsFile, 'utf8'));
     const guestIndex = guests.findIndex((row) => String(row.id) === String(guest.id));
     if (guestIndex !== -1) {
       guests[guestIndex] = { ...guests[guestIndex], estado: decision, estado_rsvp: decision,
         fecha_rsvp: record.fecha_respuesta, mensaje_rsvp: record.mensaje, updated_at: record.updated_at };
       fs.writeFileSync(guestsFile, JSON.stringify(guests, null, 2), 'utf8');
     }
+    writeLocal(rows);
   } catch (error) {
     console.error('Could not sync local guest RSVP:', error.message);
     res.status(500).json({ error: 'No se pudo registrar tu respuesta' });
     return;
   }
+  if (decision !== 'confirmado') revokeLocalPassIfUnused(token, rows);
   res.status(200).json({ ok: true, estado: decision, nombre: guest.nombre,
     cantidad_personas: guest.cantidad_personas, fecha: record.fecha_respuesta, actualizado: idx >= 0 });
 }

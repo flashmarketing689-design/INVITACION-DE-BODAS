@@ -296,6 +296,13 @@ tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
 }
 .del-btn:hover { background: var(--red); color: var(--white); transform: scale(1.05); }
 .del-btn svg { width: 12px; height: 12px; fill: currentColor; }
+.row-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; }
+.rename-btn {
+  padding: .38rem .85rem; background: rgba(90,122,92,.08); color: var(--green);
+  border: 1px solid rgba(90,122,92,.2); border-radius: 50px; font-size: .65rem;
+  font-weight: 500; cursor: pointer; font-family: 'Poppins', sans-serif;
+}
+.rename-btn:hover { background: var(--green); color: var(--white); }
 
 /* ─── EMPTY ─── */
 .empty-state {
@@ -360,6 +367,27 @@ tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
   transition: opacity .2s;
 }
 .dialog-confirm:hover { opacity: .88; }
+#rename-dialog {
+  position: fixed; inset: 0; z-index: 8100; background: rgba(38,26,20,.45);
+  backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity .25s; padding: 1rem;
+}
+#rename-dialog.show { opacity: 1; pointer-events: all; }
+.rename-dialog .dialog-box { width: min(420px, 88vw); text-align: left; }
+.rename-dialog .dialog-box h3 { text-align: left; }
+.rename-dialog label { display: block; margin-top: 1.1rem; font-size: .72rem; font-weight: 500; }
+.rename-dialog input {
+  width: 100%; margin-top: .4rem; padding: .8rem .9rem; border-radius: 12px;
+  border: 1.5px solid rgba(90,122,92,.22); font: inherit; font-size: .82rem; color: var(--text);
+}
+.rename-dialog input:focus { outline: 2px solid rgba(90,122,92,.22); border-color: var(--green); }
+.rename-help { margin-top: .5rem; }
+.rename-error { min-height: 1.2rem; margin-top: .45rem; color: var(--red); font-size: .72rem; }
+.rename-save {
+  flex: 1; padding: .85rem; background: var(--green); color: var(--white); border: none;
+  border-radius: 12px; font-family: 'Poppins', sans-serif; font-size: .78rem; cursor: pointer; font-weight: 500;
+}
+.rename-save:disabled { opacity: .6; cursor: wait; }
 
 /* ─── RESPONSIVE ─── */
 @media(max-width:640px){
@@ -447,8 +475,8 @@ tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
     </div>
     <div class="stat-card gold">
       <div class="stat-label">Cupos disponibles</div>
-      <div class="stat-value" id="s-remaining">100</div>
-      <div class="stat-sub" id="s-cap-sub">de 100 máximo</div>
+      <div class="stat-value" id="s-remaining">150</div>
+      <div class="stat-sub" id="s-cap-sub">de 150 máximo</div>
     </div>
   </div>
 
@@ -518,6 +546,22 @@ tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
   </div>
 </div>
 
+<div id="rename-dialog" class="rename-dialog" role="dialog" aria-modal="true" aria-labelledby="rename-title" aria-hidden="true">
+  <div class="dialog-box">
+    <h3 id="rename-title">Editar nombre</h3>
+    <p id="rename-dialog-help" class="rename-help">La respuesta, el enlace de invitación y el pase QR se conservarán.</p>
+    <form id="rename-form">
+      <label for="rename-name">Nombre completo</label>
+      <input id="rename-name" name="nombre" type="text" maxlength="120" autocomplete="name" required />
+      <p id="rename-error" class="rename-error" role="alert" aria-live="polite"></p>
+      <div class="dialog-actions">
+        <button type="button" class="dialog-cancel" id="rename-cancel">Cancelar</button>
+        <button type="submit" class="rename-save" id="rename-save">Guardar nombre</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script>
 (function(){
 'use strict';
@@ -525,6 +569,7 @@ tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
 let currentFilter = 'all';
 let currentSearch = '';
 let pendingDeleteGuestId = null;
+let pendingRenameGuestId = null;
 let currentStats = null;
 
 /* ─── LOGIN (verificada en el servidor · cookie HttpOnly) ─── */
@@ -598,6 +643,19 @@ async function deleteRespuesta(guestId){
   return res.ok;
 }
 
+async function renameGuest(guestId, nombre){
+  const res = await fetch('/api/guests', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify({ action: 'renombrar', guest_id: guestId, nombre })
+  });
+  const data = await res.json().catch(()=>({}));
+  if(res.status === 401){ showLogin(); throw new Error('La sesión venció. Inicia sesión de nuevo.'); }
+  if(!res.ok) throw new Error(data.error || 'No se pudo actualizar el nombre.');
+  return data;
+}
+
 /* ─── RENDER ─── */
 function esc(str){ return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -607,7 +665,7 @@ async function renderAll(){
   } catch(e){ return; }
   if(!currentStats) return;
 
-  const MAX = currentStats.max_guests || 100;
+  const MAX = currentStats.max_guests || 150;
   const attending = currentStats.personas_confirmadas;
   const remaining = Math.max(0, MAX - attending);
   const pct = Math.min(100, Math.round(attending / MAX * 100));
@@ -667,11 +725,14 @@ async function renderAll(){
       <td style="font-size:.74rem;color:var(--text-soft);max-width:200px;word-break:break-word;">${esc(r.mensaje||'—')}</td>
       <td class="td-date">${date}</td>
       <td>
+        <div class="row-actions">
+        <button type="button" class="rename-btn" data-guest="${esc(String(r.id))}">Editar nombre</button>
         ${r.estado==='confirmado' || r.estado==='no_asiste' ? `
         <button class="del-btn" data-guest="${r.id}">
           <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
           Anular
         </button>` : ''}
+        </div>
       </td>
     `;
     tbody.appendChild(tr);
@@ -687,7 +748,63 @@ async function renderAll(){
       document.getElementById('confirm-dialog').classList.add('show');
     });
   });
+
+  tbody.querySelectorAll('.rename-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const guest = currentStats.registros.find(row=>String(row.id)===btn.dataset.guest);
+      if(guest) openRenameDialog(guest);
+    });
+  });
 }
+
+const renameDialog = document.getElementById('rename-dialog');
+const renameForm = document.getElementById('rename-form');
+const renameInput = document.getElementById('rename-name');
+const renameError = document.getElementById('rename-error');
+const renameSave = document.getElementById('rename-save');
+
+function openRenameDialog(guest){
+  pendingRenameGuestId = guest.id;
+  renameInput.value = guest.nombre || '';
+  renameError.textContent = '';
+  renameDialog.classList.add('show');
+  renameDialog.setAttribute('aria-hidden', 'false');
+  renameInput.focus();
+  renameInput.select();
+}
+
+function closeRenameDialog(){
+  renameDialog.classList.remove('show');
+  renameDialog.setAttribute('aria-hidden', 'true');
+  pendingRenameGuestId = null;
+  renameError.textContent = '';
+}
+
+renameForm.addEventListener('submit', async event=>{
+  event.preventDefault();
+  if(pendingRenameGuestId === null) return;
+  const nombre = renameInput.value.trim().replace(/\s+/g, ' ');
+  if(nombre.length > 120 || nombre.split(' ').filter(Boolean).length < 2){
+    renameError.textContent = 'Escribe el nombre y al menos un apellido.';
+    renameInput.focus();
+    return;
+  }
+  renameSave.disabled = true;
+  renameError.textContent = '';
+  try{
+    await renameGuest(pendingRenameGuestId, nombre);
+    closeRenameDialog();
+    showToast('Nombre actualizado. Se conservaron la respuesta y el enlace.');
+    await renderAll();
+  }catch(error){
+    renameError.textContent = error.message || 'No se pudo actualizar el nombre.';
+  }finally{
+    renameSave.disabled = false;
+  }
+});
+document.getElementById('rename-cancel').addEventListener('click', closeRenameDialog);
+renameDialog.addEventListener('click', event=>{ if(event.target === renameDialog) closeRenameDialog(); });
+document.addEventListener('keydown', event=>{ if(event.key === 'Escape' && renameDialog.classList.contains('show')) closeRenameDialog(); });
 
 /* ─── FILTERS ─── */
 document.querySelectorAll('.filter-btn').forEach(btn=>{

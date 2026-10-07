@@ -416,6 +416,55 @@ module.exports = async function handler(req, res) {
       return;
     }
 
+    if (action === 'renombrar') {
+      const nombre = String(payload.nombre || '').trim().replace(/\s+/g, ' ').slice(0, 120);
+      if (!nombre || nombre.split(' ').filter(Boolean).length < 2) {
+        res.status(400).json({ error: 'El nombre completo debe incluir nombre y apellido.' });
+        return;
+      }
+
+      if (supabaseConfigured && supabase) {
+        const { data, error } = await supabase.from('guests')
+          .update({ nombre })
+          .eq('id', id)
+          .is('archived_at', null)
+          .select(PUBLIC_COLUMNS)
+          .maybeSingle();
+        if (error) {
+          console.error('Guest rename error:', error.message);
+          res.status(500).json({ error: 'No se pudo actualizar el nombre.' });
+          return;
+        }
+        if (!data) { res.status(404).json({ error: 'Invitado no encontrado.' }); return; }
+        res.status(200).json(data);
+        return;
+      }
+
+      const local = readLocalGuests();
+      const idx = local.findIndex((guest) => String(guest.id) === String(id) && !guest.archived_at);
+      if (idx === -1) { res.status(404).json({ error: 'Invitado no encontrado.' }); return; }
+      local[idx] = { ...local[idx], nombre, updated_at: new Date().toISOString() };
+
+      const invitationRows = getLocalInvitations();
+      const invitation = invitationRows.find((row) => row.status === 'active'
+        && (row.members || []).some((member) => String(member.guest_id) === String(id) && member.active !== false));
+      if (invitation?.group_type === 'individual') {
+        invitation.display_name = nombre;
+        saveLocalInvitations(invitationRows);
+      } else if (invitation?.group_type === 'couple') {
+        invitation.display_name = invitation.members
+          .filter((member) => member.active !== false)
+          .sort((a, b) => a.position - b.position)
+          .map((member) => local.find((guest) => String(guest.id) === String(member.guest_id))?.nombre)
+          .filter(Boolean).join(' y ');
+        saveLocalInvitations(invitationRows);
+      }
+
+      writeLocalGuests(local);
+      res.status(200).json(local[idx]);
+      return;
+    }
+
     if (action === 'regenerar_token') {
       if (supabaseConfigured && supabase) {
         const membership = await getActiveMembership(id);

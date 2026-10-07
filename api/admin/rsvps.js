@@ -12,7 +12,7 @@
 const { isAdminRequest, isSameOriginRequest } = require('../../lib/auth');
 const { supabase, supabaseConfigured } = require('../../lib/supabaseClient');
 
-const MAX_GUESTS = 100;
+const MAX_GUESTS = 150;
 
 function emptyStats() {
   return {
