@@ -15,9 +15,14 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { isAdminRequest, getGuestByToken, isSameOriginRequest } = require('../lib/auth');
 const { supabase, supabaseConfigured } = require('../lib/supabaseClient');
 const { allowRequest, clientIp } = require('../lib/rateLimit');
+const {
+  getInvitationByToken, getGuestForLegacyToken, isMissingMigration,
+  getLocalInvitations, saveLocalInvitations,
+} = require('../lib/invitations');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const LOCAL_FILE = path.join(DATA_DIR, 'rsvp_respuestas_local.json');
@@ -47,6 +52,31 @@ function parseBody(body) {
   return body;
 }
 
+function revokeLocalPassIfUnused(token, rsvps) {
+  const invitations = getLocalInvitations();
+  const invitation = invitations.find((row) => row.token === token && row.status === 'active');
+  if (!invitation) return;
+  const hasConfirmed = (invitation.members || []).some((member) => member.active !== false
+    && rsvps.some((row) => String(row.guest_id) === String(member.guest_id) && row.estado === 'confirmado'));
+  if (!hasConfirmed) {
+    invitation.pass_token = crypto.randomUUID();
+    saveLocalInvitations(invitations);
+  }
+}
+
+function revokeLocalPassForGuestIfUnused(guestId, rsvps) {
+  const invitations = getLocalInvitations();
+  const invitation = invitations.find((row) => row.status === 'active'
+    && (row.members || []).some((member) => String(member.guest_id) === String(guestId) && member.active !== false));
+  if (!invitation) return;
+  const hasConfirmed = (invitation.members || []).some((member) => member.active !== false
+    && rsvps.some((row) => String(row.guest_id) === String(member.guest_id) && row.estado === 'confirmado'));
+  if (!hasConfirmed) {
+    invitation.pass_token = crypto.randomUUID();
+    saveLocalInvitations(invitations);
+  }
+}
+
 /* ════════════════ POST público: confirmación por token ════════════════ */
 async function handleConfirm(req, res) {
   if (!allowRequest(`rsvp:${clientIp(req)}`, 30, 60 * 1000)) {
@@ -56,24 +86,156 @@ async function handleConfirm(req, res) {
 
   const payload = parseBody(req.body);
   const token = String(payload.token || '').trim().toLowerCase();
-  const decision = payload.asistencia === 'no_asiste' ? 'no_asiste'
-    : payload.asistencia === 'si' ? 'confirmado'
-    : payload.asistencia === 'confirmado' ? 'confirmado'
-    : null;
-
-  if (!decision) {
-    res.status(400).json({ error: 'Respuesta inválida' });
-    return;
+  let invitation;
+  try { invitation = await getInvitationByToken(token); }
+  catch (error) {
+    if (isMissingMigration(error)) {
+      res.status(503).json({ error: 'Falta ejecutar la migración 004 de invitaciones en Supabase.' });
+      return;
+    }
+    throw error;
   }
-
-  // ── Identidad SIEMPRE del servidor ──
-  const guest = await getGuestByToken(token);
-  if (!guest) {
+  if (!invitation) {
     res.status(404).json({ error: 'Invitación no encontrada' });
     return;
   }
 
-  // El invitado nunca envía su nombre ni su cantidad: vienen del registro admin.
+  // Los registros antiguos con cupos anónimos conservan su respuesta agregada
+  // hasta que el administrador identifique a cada persona.
+  if (invitation.legacy_review_required) {
+    await handleLegacyConfirm(token, payload, res);
+    return;
+  }
+
+  const normalizeDecision = (value) => value === 'si' || value === 'confirmado' ? 'confirmado'
+    : value === 'no_asiste' ? 'no_asiste' : null;
+  const memberById = new Map(invitation.members.map((member) => [member.member_id, member]));
+  let responses = Array.isArray(payload.responses) ? payload.responses.map((row) => ({
+    member_id: String(row?.member_id || '').trim().toLowerCase(),
+    estado: normalizeDecision(row?.estado || row?.asistencia),
+    expected_estado: row?.expected_estado === undefined
+      ? (memberById.get(String(row?.member_id || '').trim().toLowerCase())?.estado_rsvp || null)
+      : row.expected_estado === null ? null : normalizeDecision(row.expected_estado),
+  })) : [];
+
+  // Keep the old single-person form contract working for individual links.
+  if (!responses.length && invitation.members.length === 1) {
+    const estado = normalizeDecision(payload.asistencia);
+    if (estado) responses = [{ member_id: invitation.members[0].member_id, estado,
+      expected_estado: invitation.members[0].estado_rsvp || null }];
+  }
+  const idPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!responses.length || responses.length > 100 || responses.some((row) => !idPattern.test(row.member_id) || !row.estado)
+      || responses.some((row) => row.expected_estado && !['confirmado', 'no_asiste'].includes(row.expected_estado))
+      || new Set(responses.map((row) => row.member_id)).size !== responses.length) {
+    res.status(400).json({ error: 'Selecciona una respuesta válida para cada persona que vayas a responder.' });
+    return;
+  }
+  const invitationMembers = new Set(invitation.members.map((member) => member.member_id));
+  if (responses.some((row) => !invitationMembers.has(row.member_id))) {
+    res.status(400).json({ error: 'Una respuesta no pertenece a esta invitación.' });
+    return;
+  }
+  const message = String(payload.mensaje || '').trim().slice(0, 500) || null;
+
+  if (supabaseConfigured && supabase) {
+    const { error } = await supabase.rpc('save_invitation_responses', {
+      p_token: token,
+      p_responses: responses,
+      p_message: message,
+    });
+    if (error) {
+      console.error('Grouped RSVP save error:', error.message);
+      if (error.code === '22023' || error.code === '40001') {
+        res.status(409).json({ error: 'La invitación cambió o una respuesta ya no pertenece a este grupo. Recarga la página.' });
+        return;
+      }
+      res.status(500).json({ error: 'No se pudo guardar las respuestas' });
+      return;
+    }
+    invitation = await getInvitationByToken(token);
+  } else {
+    const guestsFile = path.join(DATA_DIR, 'guests.json');
+    const guests = JSON.parse(fs.readFileSync(guestsFile, 'utf8'));
+    const rows = readLocal();
+    const now = new Date().toISOString();
+    for (const response of responses) {
+      const member = invitation.members.find((row) => row.member_id === response.member_id);
+      const current = rows.find((row) => String(row.guest_id) === String(member?.guest_id));
+      if ((current?.estado || null) !== response.expected_estado) {
+        res.status(409).json({ error: 'Otra persona actualizó esta respuesta. Recarga la invitación y revisa el estado.' });
+        return;
+      }
+    }
+    for (const response of responses) {
+      const member = invitation.members.find((row) => row.member_id === response.member_id);
+      const guestIndex = guests.findIndex((row) => String(row.id) === String(member?.guest_id));
+      if (guestIndex < 0 || guests[guestIndex].archived_at) {
+        res.status(409).json({ error: 'Una persona de la invitación ya no está activa. Recarga la página.' });
+        return;
+      }
+      const guest = guests[guestIndex];
+      const idx = rows.findIndex((row) => String(row.guest_id) === String(guest.id));
+      const record = {
+        id: idx >= 0 ? rows[idx].id : rows.reduce((m, row) => Math.max(m, row.id || 0), 0) + 1,
+        guest_id: guest.id,
+        estado: response.estado,
+        telefono: guest.telefono || null,
+        mensaje: message,
+        fecha_respuesta: now,
+        created_at: idx >= 0 ? rows[idx].created_at : now,
+        updated_at: now,
+      };
+      if (idx >= 0) rows[idx] = { ...rows[idx], ...record };
+      else rows.push(record);
+      guests[guestIndex] = {
+        ...guest,
+        estado: response.estado,
+        estado_rsvp: response.estado,
+        fecha_rsvp: now,
+        mensaje_rsvp: message,
+        updated_at: now,
+      };
+    }
+    writeLocal(rows);
+    revokeLocalPassIfUnused(token, rows);
+    fs.writeFileSync(guestsFile, JSON.stringify(guests, null, 2), 'utf8');
+    invitation = await getInvitationByToken(token);
+  }
+
+  const answered = invitation.members.filter((member) => member.estado_rsvp).length;
+  const confirmed = invitation.members.filter((member) => member.estado_rsvp === 'confirmado').length;
+  const declined = invitation.members.filter((member) => member.estado_rsvp === 'no_asiste').length;
+  res.status(200).json({
+    ok: true,
+    nombre: invitation.display_name,
+    cantidad_personas: invitation.members.length,
+    estado: invitation.members.length === 1 ? invitation.members[0].estado_rsvp : null,
+    fecha: new Date().toISOString(),
+    members: invitation.members.map((member) => ({
+      member_id: member.member_id,
+      nombre: member.nombre,
+      estado_rsvp: member.estado_rsvp || null,
+      fecha_rsvp: member.fecha_rsvp || null,
+    })),
+    resumen: {
+      confirmados: confirmed,
+      no_asisten: declined,
+      pendientes: invitation.members.length - answered,
+    },
+    qr_disponible: confirmed > 0,
+    actualizado: true,
+  });
+}
+
+async function handleLegacyConfirm(token, payload, res) {
+  const guest = await getGuestForLegacyToken(token);
+  const decision = payload.asistencia === 'no_asiste' ? 'no_asiste'
+    : payload.asistencia === 'si' || payload.asistencia === 'confirmado' ? 'confirmado' : null;
+  if (!guest || !decision) {
+    res.status(400).json({ error: 'Respuesta inválida' });
+    return;
+  }
   const respuesta = {
     guest_id: guest.id,
     estado: decision,
@@ -81,56 +243,38 @@ async function handleConfirm(req, res) {
     mensaje: String(payload.mensaje || '').trim().slice(0, 500) || null,
     fecha_respuesta: new Date().toISOString(),
   };
-
   if (supabaseConfigured && supabase) {
-    const { data, error } = await supabase
-      .from('rsvp_respuestas')
-      .upsert(respuesta, { onConflict: 'guest_id' })
-      .select()
-      .single();
+    const { data, error } = await supabase.from('rsvp_respuestas')
+      .upsert(respuesta, { onConflict: 'guest_id' }).select().single();
     if (error) {
-      console.error('RSVP upsert error:', error.message);
+      console.error('Legacy RSVP upsert error:', error.message);
       res.status(500).json({ error: 'No se pudo registrar tu respuesta' });
       return;
     }
-    res.status(200).json({
-      ok: true,
-      estado: data.estado,
-      nombre: guest.nombre,
-      cantidad_personas: guest.cantidad_personas,
-      fecha: data.fecha_respuesta,
-      actualizado: true,
-    });
+    res.status(200).json({ ok: true, estado: data.estado, nombre: guest.nombre,
+      cantidad_personas: guest.cantidad_personas, fecha: data.fecha_respuesta, actualizado: true });
     return;
   }
-
-  // Fallback local: mismo contrato upsert
   const rows = readLocal();
-  const idx = rows.findIndex((r) => r.guest_id === guest.id);
+  const idx = rows.findIndex((row) => String(row.guest_id) === String(guest.id));
+  const now = new Date().toISOString();
   const record = {
     ...respuesta,
-    id: idx >= 0 ? rows[idx].id : rows.reduce((m, r) => Math.max(m, r.id || 0), 0) + 1,
-    created_at: idx >= 0 ? rows[idx].created_at : new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    id: idx >= 0 ? rows[idx].id : rows.reduce((m, row) => Math.max(m, row.id || 0), 0) + 1,
+    created_at: idx >= 0 ? rows[idx].created_at : now,
+    updated_at: now,
   };
   if (idx >= 0) rows[idx] = { ...rows[idx], ...record };
   else rows.push(record);
   writeLocal(rows);
-
-  // Keep the development fallback equivalent to the Supabase sync trigger.
+  if (decision !== 'confirmado') revokeLocalPassIfUnused(token, rows);
   const guestsFile = path.join(DATA_DIR, 'guests.json');
   try {
     const guests = JSON.parse(fs.readFileSync(guestsFile, 'utf8'));
-    const guestIndex = guests.findIndex((g) => g.id === guest.id);
+    const guestIndex = guests.findIndex((row) => String(row.id) === String(guest.id));
     if (guestIndex !== -1) {
-      guests[guestIndex] = {
-        ...guests[guestIndex],
-        estado: decision,
-        estado_rsvp: decision,
-        fecha_rsvp: record.fecha_respuesta,
-        mensaje_rsvp: record.mensaje,
-        updated_at: record.updated_at,
-      };
+      guests[guestIndex] = { ...guests[guestIndex], estado: decision, estado_rsvp: decision,
+        fecha_rsvp: record.fecha_respuesta, mensaje_rsvp: record.mensaje, updated_at: record.updated_at };
       fs.writeFileSync(guestsFile, JSON.stringify(guests, null, 2), 'utf8');
     }
   } catch (error) {
@@ -138,15 +282,8 @@ async function handleConfirm(req, res) {
     res.status(500).json({ error: 'No se pudo registrar tu respuesta' });
     return;
   }
-
-  res.status(200).json({
-    ok: true,
-    estado: decision,
-    nombre: guest.nombre,
-    cantidad_personas: guest.cantidad_personas,
-    fecha: record.fecha_respuesta,
-    actualizado: idx >= 0,
-  });
+  res.status(200).json({ ok: true, estado: decision, nombre: guest.nombre,
+    cantidad_personas: guest.cantidad_personas, fecha: record.fecha_respuesta, actualizado: idx >= 0 });
 }
 
 /* ════════════════ GET admin: listado de respuestas ════════════════ */
@@ -205,7 +342,9 @@ async function handleDelete(req, res) {
     res.status(200).json({ ok: true });
     return;
   }
-  writeLocal(readLocal().filter((r) => r.guest_id !== guestId));
+  const remaining = readLocal().filter((r) => String(r.guest_id) !== String(guestId));
+  writeLocal(remaining);
+  revokeLocalPassForGuestIfUnused(guestId, remaining);
   res.status(200).json({ ok: true });
 }
 

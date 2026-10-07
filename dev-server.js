@@ -25,8 +25,8 @@ try {
 const ROOT = __dirname;
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const PUBLIC_FILES = new Set([
-  'index.html', 'invitados.html', 'admin.html',
-  'favicon.svg', 'foto-pareja.jpg', 'musica-boda.mp3',
+  'index.html', 'invitados.html', 'admin.html', 'invitaciones.html', 'recepcion.html',
+  'favicon.svg', 'foto-pareja.jpg', 'musica-boda.mp3', 'vendor/zxing-browser.min.js',
 ]);
 
 const MIME = {

@@ -297,6 +297,14 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
       <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
       <span>Panel RSVP</span>
     </a>
+    <a href="invitaciones.html" class="btn-sm btn-outline">
+      <svg viewBox="0 0 24 24"><path d="M16 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM4 8a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm12 6c-3.3 0-6 1.7-6 3.8V20h12v-2.2c0-2.1-2.7-3.8-6-3.8ZM4 16c-2.2 0-4 1.1-4 2.5V20h6v-1.5c0-.9.3-1.7.9-2.4A7 7 0 0 0 4 16Z"/></svg>
+      <span>Invitaciones</span>
+    </a>
+    <a href="recepcion.html" class="btn-sm btn-outline">
+      <svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 0 0-5 5v3h10V7a5 5 0 0 0-5-5ZM5 10v12h14V10H5Zm7 3a2 2 0 0 1 1 3.73V19h-2v-2.27A2 2 0 0 1 12 13Z"/></svg>
+      <span>Recepción</span>
+    </a>
     <button class="btn-sm btn-green" id="add-btn">
       <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
       <span>Agregar invitado</span>
@@ -434,7 +442,7 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
     </div>
     <div class="m-row">
       <div class="m-group" id="mg-cantidad">
-        <label>Cantidad de personas <span>*</span></label>
+        <label>Personas autorizadas (dato antiguo) <span>*</span></label>
         <select id="f-cantidad">
           <option value="">Seleccionar…</option>
           <option value="1">1 persona</option>
@@ -448,6 +456,7 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
           <option value="9">9 personas</option>
           <option value="10">10 personas</option>
         </select>
+        <small style="font-size:.64rem;color:var(--text-soft);line-height:1.5">Para nuevos registros, agrega a cada asistente con su nombre y luego selecciónalos en Invitaciones. Los cupos anónimos antiguos requieren revisión.</small>
         <div class="m-err">Selecciona la cantidad.</div>
       </div>
       <div class="m-group">
@@ -473,7 +482,7 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
       <div class="modal-title" id="link-modal-title">Invitación personal</div>
       <button class="modal-close" id="link-close-btn" aria-label="Cerrar">&times;</button>
     </div>
-    <p style="font-size:.76rem;color:var(--text-soft);margin-bottom:1rem;line-height:1.6">
+    <p id="link-modal-description" style="font-size:.76rem;color:var(--text-soft);margin-bottom:1rem;line-height:1.6">
       Enlace exclusivo de <strong id="link-modal-name"></strong>. Solo esta persona puede abrir su invitación con este enlace.
     </p>
     <div class="link-modal-code" id="link-modal-code"></div>
@@ -631,18 +640,20 @@ async function loadGuests(){
 }
 
 function guestLink(g){
-  return new URL('/?guest=' + encodeURIComponent(g.token), location.origin).href;
+  return new URL('/?guest=' + encodeURIComponent(g.invitation_token || g.token), location.origin).href;
 }
 
 function whatsappMessage(g){
   // Personalizable: edita estas líneas para cambiar el texto del mensaje.
   const link = guestLink(g);
+  const inviteName = g.invitation_name || g.nombre;
+  const isGroup = ['couple','family'].includes(g.invitation_type);
   return [
-    `Hola ${g.nombre.split(' ')[0]} 👋`,
+    `Hola ${inviteName} 👋`,
     '',
     'Queremos compartir contigo nuestra invitación de boda. Nos haría mucha ilusión contar contigo en este día tan importante para nosotros.',
     '',
-    'Tu invitación personal:',
+    isGroup ? 'La invitación compartida para ustedes:' : 'Tu invitación personal:',
     link,
     '',
     'Por favor, entra en tu invitación y confírmanos si podrás acompañarnos. 🤍',
@@ -944,7 +955,12 @@ function openLinkModal(id){
   const g = guests.find(x=>x.id===id);
   if (!g) return;
   linkModalGuestId = id;
-  document.getElementById('link-modal-name').textContent = g.nombre;
+  const shared = ['couple','family'].includes(g.invitation_type);
+  document.getElementById('link-modal-title').textContent = shared ? 'Enlace compartido' : 'Invitación personal';
+  document.getElementById('link-modal-name').textContent = g.invitation_name || g.nombre;
+  document.getElementById('link-modal-description').textContent = shared
+    ? 'Enlace de uso compartido para todas las personas que aparecen en esta invitación. Si reenvías el enlace, todas las respuestas del grupo se gestionan desde ahí.'
+    : 'Enlace individual de esta persona. Compártelo únicamente con el invitado registrado.';
   document.getElementById('link-modal-code').textContent = guestLink(g);
   document.getElementById('link-open-btn').href = guestLink(g);
   const waBtn = document.getElementById('link-wa-btn');
@@ -1001,12 +1017,11 @@ document.getElementById('link-regen-btn').addEventListener('click', ()=>{
     'Regenerar',
     async ()=>{
       try {
-        const updated = await api('/api/guests', {
+        await api('/api/guests', {
           method: 'PATCH',
           body: JSON.stringify({ action:'regenerar_token', guest_id: g.id })
         });
-        const idx = guests.findIndex(x=>x.id===g.id);
-        if (idx !== -1) guests[idx] = updated;
+        await loadGuests();
         openLinkModal(g.id);
         renderAll();
         showToast('Enlace regenerado. El anterior ya no funciona.');
@@ -1070,7 +1085,11 @@ function openModal(id){
   fNombre.value    = g ? g.nombre    : '';
   fPertenece.value = g ? g.pertenece : '';
   fCategoria.value = g ? g.categoria : '';
-  fCantidad.value  = g ? g.cantidad_personas  : '';
+  fCantidad.value  = g ? g.cantidad_personas  : '1';
+  [...fCantidad.options].forEach(option=>{
+    if(!option.value) return;
+    option.disabled = g ? Number(option.value)>1 && Number(option.value)!==Number(g.cantidad_personas) : option.value!=='1';
+  });
   fTelefono.value  = g ? (g.telefono||'') : '';
   fNotas.value     = g ? (g.notas||'')    : '';
 
@@ -1103,6 +1122,12 @@ async function saveGuest(){
   validate(fCantidad,  'mg-cantidad',   !cantidad);
 
   if(!valid) return;
+
+  const existingGuest = editingId ? guests.find(row=>row.id===editingId) : null;
+  if(existingGuest && Number(existingGuest.cantidad_personas)>1 && Number(cantidad)===1){
+    const yes = confirm('Este registro antiguo autorizaba a más de una persona. Antes de reducirlo, agrega a cada asistente por su nombre si formará parte del grupo. ¿Confirmas que solo asistirá la persona nombrada aquí?');
+    if(!yes) return;
+  }
 
   saveBtn.disabled = true;
   const payload = {

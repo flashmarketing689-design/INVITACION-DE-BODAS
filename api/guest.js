@@ -10,9 +10,10 @@
  * - Rate limit básico por IP; el token es un bearer secreto aleatorio.
  */
 
-const { getGuestByToken, isSameOriginRequest } = require('../lib/auth');
+const { isSameOriginRequest } = require('../lib/auth');
 const { supabase, supabaseConfigured } = require('../lib/supabaseClient');
 const { allowRequest, clientIp } = require('../lib/rateLimit');
+const { getInvitationByToken, isMissingMigration } = require('../lib/invitations');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -46,27 +47,50 @@ module.exports = async function handler(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const token = (url.searchParams.get('token') || '').trim().toLowerCase();
 
-  let guest;
+  let invitation;
   try {
-    guest = await getGuestByToken(token);
+    invitation = await getInvitationByToken(token);
   } catch (error) {
     console.error('Guest lookup failed:', error.message);
+    if (isMissingMigration(error)) {
+      res.status(503).json({ error: 'El sistema de invitaciones agrupadas necesita la migración 004 en Supabase.' });
+      return;
+    }
     res.status(500).json({ error: 'No se pudo verificar la invitación' });
     return;
   }
 
-  if (!guest) {
+  if (!invitation) {
     res.status(200).json({ found: false });
     return;
   }
 
+  const members = invitation.members || [];
+  const legacyMember = members[0] || {};
+  const legacyAggregate = Boolean(invitation.legacy_review_required);
+  const confirmed = members.filter((member) => member.estado_rsvp === 'confirmado').length;
+  const declined = members.filter((member) => member.estado_rsvp === 'no_asiste').length;
+
   res.status(200).json({
     found: true,
     guest: {
-      nombre: guest.nombre,
-      cantidad_personas: guest.cantidad_personas,
-      estado_rsvp: guest.estado_rsvp || null,
-      fecha_rsvp: guest.fecha_rsvp || null,
+      nombre: invitation.display_name,
+      tipo: invitation.group_type,
+      cantidad_personas: legacyAggregate ? (legacyMember.cantidad_personas || 1) : members.length,
+      estado_rsvp: members.length === 1 ? legacyMember.estado_rsvp : null,
+      fecha_rsvp: members.length === 1 ? legacyMember.fecha_rsvp : null,
+      legacy_review_required: legacyAggregate,
+      members: members.map((member) => ({
+        member_id: member.member_id,
+        nombre: member.nombre,
+        estado_rsvp: member.estado_rsvp || null,
+        fecha_rsvp: member.fecha_rsvp || null,
+      })),
+      resumen: {
+        confirmados: confirmed,
+        no_asisten: declined,
+        pendientes: Math.max(0, members.length - confirmed - declined),
+      },
     },
   });
 };

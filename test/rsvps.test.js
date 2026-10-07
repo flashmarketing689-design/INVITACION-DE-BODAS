@@ -8,10 +8,15 @@ process.env.ADMIN_PASSWORD = 'test-admin-pass';
 const rsvpsHandler = require('../api/rsvps');
 const guestsHandler = require('../api/guests');
 const guestHandler = require('../api/guest');
+const invitationsHandler = require('../api/invitations');
+const checkinHandler = require('../api/checkin');
+const qrHandler = require('../api/qr');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const GUESTS_FILE = path.join(DATA_DIR, 'guests.json');
 const LOCAL_RSVPS = path.join(DATA_DIR, 'rsvp_respuestas_local.json');
+const LOCAL_INVITATIONS = path.join(DATA_DIR, 'invitations_local.json');
+const LOCAL_CHECKINS = path.join(DATA_DIR, 'invitation_checkins_local.json');
 
 function createRes() {
   const res = {};
@@ -19,7 +24,7 @@ function createRes() {
   res.setHeader = (name, value) => { res.headers[name] = value; };
   res.status = (code) => { res.statusCode = code; return res; };
   res.json = (payload) => { res.body = payload; return res; };
-  res.end = () => { res.ended = true; return res; };
+  res.end = (payload) => { res.ended = true; res.output = payload; return res; };
   return res;
 }
 
@@ -36,6 +41,8 @@ function resetData() {
   fs.mkdirSync(DATA_DIR, { recursive: true });
   fs.writeFileSync(GUESTS_FILE, '[]', 'utf8');
   fs.writeFileSync(LOCAL_RSVPS, '[]', 'utf8');
+  fs.writeFileSync(LOCAL_INVITATIONS, '[]', 'utf8');
+  fs.writeFileSync(LOCAL_CHECKINS, '[]', 'utf8');
 }
 
 async function loginAdmin() {
@@ -51,6 +58,10 @@ async function loginAdmin() {
 }
 
 async function createGuest(cookie, overrides = {}) {
+  const legacyQuantity = Number(overrides.cantidad_personas ?? overrides.cantidad ?? 2);
+  const guestOverrides = { ...overrides };
+  delete guestOverrides.cantidad_personas;
+  delete guestOverrides.cantidad;
   const res = createRes();
   await guestsHandler(createReq({
     method: 'POST',
@@ -59,14 +70,20 @@ async function createGuest(cookie, overrides = {}) {
       nombre: 'Ana Pérez',
       pertenece: 'novia',
       categoria: 'familiares',
-      cantidad_personas: 2,
+      cantidad_personas: 1,
       telefono: '+18090000000',
-      ...overrides,
+      ...guestOverrides,
     },
     headers: { cookie },
   }), res);
   assert.equal(res.statusCode, 200, JSON.stringify(res.body));
-  return res.body;
+  if (legacyQuantity > 1) {
+    const guests = JSON.parse(fs.readFileSync(GUESTS_FILE, 'utf8'));
+    const index = guests.findIndex((guest) => String(guest.id) === String(res.body.id));
+    guests[index] = { ...guests[index], cantidad_personas: legacyQuantity };
+    fs.writeFileSync(GUESTS_FILE, JSON.stringify(guests, null, 2), 'utf8');
+  }
+  return { ...res.body, cantidad_personas: legacyQuantity };
 }
 
 async function confirm(token, asistencia, mensaje) {
@@ -77,6 +94,36 @@ async function confirm(token, asistencia, mensaje) {
     body: { token, asistencia, mensaje },
   }), res);
   return res;
+}
+
+async function groupGuests(cookie, guestIds, groupType = 'couple', displayName) {
+  const res = createRes();
+  await invitationsHandler(createReq({
+    method: 'POST', url: '/api/invitations',
+    body: { guest_ids: guestIds, group_type: groupType, display_name: displayName },
+    headers: { cookie },
+  }), res);
+  return res;
+}
+
+async function confirmMembers(token, responses, mensaje = '') {
+  const res = createRes();
+  await rsvpsHandler(createReq({
+    method: 'POST', url: '/api/rsvps',
+    body: { token, responses, mensaje },
+  }), res);
+  return res;
+}
+
+async function loginReception(operator = 'Ana Recepción') {
+  process.env.RECEPTION_PASS_KEY = 'reception-test-pass-12345';
+  const res = createRes();
+  await checkinHandler(createReq({
+    method: 'POST', url: '/api/checkin?action=login',
+    body: { operator, password: process.env.RECEPTION_PASS_KEY },
+  }), res);
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+  return res.headers['Set-Cookie'].split(';')[0];
 }
 
 /* ══════════ Autenticación admin ══════════ */
@@ -239,6 +286,138 @@ test('invitación por token expone solo nombre, cantidad y estado', async () => 
   assert.ok(!exposed.includes(g.id.toString()), 'no expone id interno');
   assert.ok(!exposed.includes('+18095551111'), 'no expone teléfono');
   assert.equal(res.body.guest.cantidad_personas, 2);
+});
+
+test('pareja comparte un enlace, conserva respuestas individuales y revoca sus enlaces anteriores', async () => {
+  resetData();
+  const cookie = await loginAdmin();
+  const ana = await createGuest(cookie, { nombre: 'Ana Pérez', cantidad_personas: 1 });
+  const luis = await createGuest(cookie, { nombre: 'Luis Cruz', cantidad_personas: 1 });
+  const grouped = await groupGuests(cookie, [ana.id, luis.id], 'couple');
+  assert.equal(grouped.statusCode, 201, JSON.stringify(grouped.body));
+  assert.equal(grouped.body.display_name, 'Ana Pérez y Luis Cruz');
+  assert.equal(grouped.body.members.length, 2);
+  assert.notEqual(grouped.body.token, ana.token);
+  assert.notEqual(grouped.body.pass_token, grouped.body.token, 'el código del pase no es el enlace para responder');
+
+  const oldLink = createRes();
+  await guestHandler(createReq({ method: 'GET', url: `/api/guest?token=${ana.token}` }), oldLink);
+  assert.deepEqual(oldLink.body, { found: false });
+  const publicInvite = createRes();
+  await guestHandler(createReq({ method: 'GET', url: `/api/guest?token=${grouped.body.token}` }), publicInvite);
+  assert.equal(publicInvite.body.guest.members.length, 2);
+  assert.deepEqual(publicInvite.body.guest.members.map((member) => member.nombre), ['Ana Pérez', 'Luis Cruz']);
+  assert.ok(!JSON.stringify(publicInvite.body).includes(String(ana.id)), 'no expone IDs internos secuenciales');
+
+  const firstMember = publicInvite.body.guest.members[0];
+  const partial = await confirmMembers(grouped.body.token, [{ member_id: firstMember.member_id, estado: 'confirmado' }]);
+  assert.equal(partial.statusCode, 200, JSON.stringify(partial.body));
+  assert.equal(partial.body.resumen.confirmados, 1);
+  assert.equal(partial.body.resumen.pendientes, 1);
+  const qr = createRes();
+  await qrHandler(createReq({ method: 'GET', url: `/api/qr?token=${grouped.body.token}` }), qr);
+  assert.equal(qr.statusCode, 200);
+  assert.equal(qr.headers['Content-Type'], 'image/png');
+  assert.ok(Buffer.isBuffer(qr.output) && qr.output.length > 100);
+
+  const oldPassToken = grouped.body.pass_token;
+  const declined = await confirmMembers(grouped.body.token, [{ member_id: firstMember.member_id, estado: 'no_asiste' }]);
+  assert.equal(declined.statusCode, 200);
+  const oldQr = createRes();
+  await qrHandler(createReq({ method: 'GET', url: `/api/qr?token=${grouped.body.token}` }), oldQr);
+  assert.equal(oldQr.statusCode, 404, 'sin confirmados no se emite un pase');
+  const adminInvitations = createRes();
+  await invitationsHandler(createReq({ method: 'GET', url: '/api/invitations', headers: { cookie } }), adminInvitations);
+  const revokedGroup = adminInvitations.body.find((row) => row.id === grouped.body.id);
+  assert.notEqual(revokedGroup.pass_token, oldPassToken, 'al cancelar todos, se rota la credencial del QR');
+
+  await confirmMembers(grouped.body.token, [{ member_id: firstMember.member_id, estado: 'confirmado' }]);
+  const otherMember = publicInvite.body.guest.members[1];
+  const mixed = await confirmMembers(grouped.body.token, [{ member_id: otherMember.member_id, estado: 'no_asiste' }]);
+  assert.equal(mixed.body.resumen.confirmados, 1);
+  assert.equal(mixed.body.resumen.no_asisten, 1);
+  assert.equal(mixed.body.resumen.pendientes, 0);
+  const renewedQr = createRes();
+  await qrHandler(createReq({ method: 'GET', url: `/api/qr?token=${grouped.body.token}` }), renewedQr);
+  assert.equal(renewedQr.statusCode, 200, 'la asistencia mixta mantiene el pase de quien sí confirmó');
+  const receptionCookie = await loginReception('Ana Recepción');
+  const obsoleteTicket = createRes();
+  await checkinHandler(createReq({
+    method: 'GET', url: `/api/checkin?ticket=${oldPassToken}`, headers: { cookie: receptionCookie },
+  }), obsoleteTicket);
+  assert.equal(obsoleteTicket.statusCode, 404, 'el QR anterior no revive al reconfirmar');
+});
+
+test('dos teléfonos registran el mismo pase sin duplicar una entrada', async () => {
+  resetData();
+  const adminCookie = await loginAdmin();
+  const one = await createGuest(adminCookie, { nombre: 'Starlin Pérez', cantidad_personas: 1 });
+  const two = await createGuest(adminCookie, { nombre: 'Reneisy Charles', cantidad_personas: 1 });
+  const grouped = await groupGuests(adminCookie, [one.id, two.id], 'couple');
+  const invite = createRes();
+  await guestHandler(createReq({ method: 'GET', url: `/api/guest?token=${grouped.body.token}` }), invite);
+  const member = invite.body.guest.members[0];
+  await confirmMembers(grouped.body.token, [{ member_id: member.member_id, estado: 'confirmado' }]);
+
+  const firstPhone = await loginReception('Ana Puerta 1');
+  const secondPhone = await loginReception('Luis Puerta 2');
+  const invitationTokenAsPass = createRes();
+  await checkinHandler(createReq({
+    method: 'GET', url: `/api/checkin?ticket=${grouped.body.token}`, headers: { cookie: firstPhone },
+  }), invitationTokenAsPass);
+  assert.equal(invitationTokenAsPass.statusCode, 404, 'el enlace RSVP no debe funcionar como pase de recepción');
+
+  const request = (cookie, requestId) => {
+    const res = createRes();
+    return checkinHandler(createReq({
+      method: 'POST', url: '/api/checkin',
+      body: { pass_token: grouped.body.pass_token, member_ids: [member.member_id], request_id: requestId },
+      headers: { cookie },
+    }), res).then(() => res);
+  };
+  const [a, b] = await Promise.all([
+    request(firstPhone, '323e4567-e89b-42d3-a456-426614174000'),
+    request(secondPhone, '423e4567-e89b-42d3-a456-426614174000'),
+  ]);
+  assert.equal(a.statusCode, 200);
+  assert.equal(b.statusCode, 200);
+  const outcomes = [a.body.results[0].status, b.body.results[0].status].sort();
+  assert.deepEqual(outcomes, ['already', 'registered']);
+  const checkins = JSON.parse(fs.readFileSync(LOCAL_CHECKINS, 'utf8'));
+  assert.equal(checkins.length, 1);
+
+  const ticket = createRes();
+  await checkinHandler(createReq({
+    method: 'GET', url: `/api/checkin?ticket=${grouped.body.pass_token}`, headers: { cookie: secondPhone },
+  }), ticket);
+  assert.equal(ticket.statusCode, 200);
+  assert.equal(ticket.body.members[0].checkin.operator_name, 'Ana Puerta 1');
+});
+
+test('no se agrupan cupos antiguos sin identificar como si fueran personas', async () => {
+  resetData();
+  const cookie = await loginAdmin();
+  const aggregate = await createGuest(cookie, { nombre: 'Familia García', cantidad_personas: 3 });
+  const individual = await createGuest(cookie, { nombre: 'María García', cantidad_personas: 1 });
+  const grouped = await groupGuests(cookie, [aggregate.id, individual.id], 'family', 'Familia García');
+  assert.equal(grouped.statusCode, 409);
+});
+
+test('familia comparte un pase para sus integrantes y una pareja exige dos personas', async () => {
+  resetData();
+  const cookie = await loginAdmin();
+  const people = await Promise.all([
+    createGuest(cookie, { nombre: 'Ana García', cantidad_personas: 1 }),
+    createGuest(cookie, { nombre: 'Luis García', cantidad_personas: 1 }),
+    createGuest(cookie, { nombre: 'Eva García', cantidad_personas: 1 }),
+  ]);
+  const family = await groupGuests(cookie, people.map((guest) => guest.id), 'family', 'Familia García');
+  assert.equal(family.statusCode, 201, JSON.stringify(family.body));
+  assert.equal(family.body.group_type, 'family');
+  assert.equal(family.body.members.length, 3);
+
+  const rejectedCouple = await groupGuests(cookie, people.map((guest) => guest.id), 'couple');
+  assert.equal(rejectedCouple.statusCode, 400);
 });
 
 /* ══════════ RSVP por token ══════════ */

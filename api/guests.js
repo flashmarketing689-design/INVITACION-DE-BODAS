@@ -24,6 +24,7 @@ const {
 } = require('../lib/auth');
 const { supabase, supabaseConfigured } = require('../lib/supabaseClient');
 const { allowRequest, clientIp } = require('../lib/rateLimit');
+const { getLocalInvitations, saveLocalInvitations, ensureLocalSingletons, isMissingMigration } = require('../lib/invitations');
 
 /* ─── Store local (fallback dev) ─── */
 const DATA_DIR = path.join(__dirname, '..', 'data');
@@ -94,6 +95,55 @@ function baseUrl(req) {
 
 function validBatchId(value) {
   return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+}
+
+async function decorateGuests(rows) {
+  if (supabaseConfigured && supabase) {
+    const { data, error } = await supabase.from('invitation_members')
+      .select('guest_id, invitation_id, invitations!inner(token, group_type, display_name, status, needs_review)')
+      .eq('active', true).eq('invitations.status', 'active');
+    if (error) {
+      if (isMissingMigration(error)) return rows;
+      throw error;
+    }
+    const byGuest = new Map((data || []).map((row) => [String(row.guest_id), row]));
+    return rows.map((guest) => {
+      const row = byGuest.get(String(guest.id));
+      if (!row) return guest;
+      const invitation = row.invitations || {};
+      return { ...guest, invitation_id: row.invitation_id, invitation_token: invitation.token,
+        invitation_type: invitation.group_type, invitation_name: invitation.display_name,
+        invitation_needs_review: Boolean(invitation.needs_review) };
+    });
+  }
+  const byGuest = new Map();
+  ensureLocalSingletons().filter((row) => row.status === 'active').forEach((invitation) => {
+    (invitation.members || []).filter((member) => member.active !== false).forEach((member) => {
+      byGuest.set(String(member.guest_id), invitation);
+    });
+  });
+  return rows.map((guest) => {
+    const invitation = byGuest.get(String(guest.id));
+    return invitation ? { ...guest, invitation_id: invitation.id, invitation_token: invitation.token,
+      invitation_type: invitation.group_type, invitation_name: invitation.display_name,
+      invitation_needs_review: Boolean(invitation.needs_review) } : guest;
+  });
+}
+
+async function getActiveMembership(guestId) {
+  if (supabaseConfigured && supabase) {
+    const { data, error } = await supabase.from('invitation_members')
+      .select('invitation_id, invitations!inner(group_type, status, needs_review)')
+      .eq('guest_id', guestId).eq('active', true).eq('invitations.status', 'active').maybeSingle();
+    if (error) {
+      if (isMissingMigration(error)) return null;
+      throw error;
+    }
+    return data || null;
+  }
+  const invitation = ensureLocalSingletons().find((row) => row.status === 'active'
+    && (row.members || []).some((member) => String(member.guest_id) === String(guestId) && member.active !== false));
+  return invitation ? { invitation_id: invitation.id, invitations: invitation } : null;
 }
 
 function normalizeLegacyGuest(g) {
@@ -236,10 +286,15 @@ module.exports = async function handler(req, res) {
         res.status(500).json({ error: 'Error leyendo invitados' });
         return;
       }
-      res.status(200).json(data || []);
+      try {
+        res.status(200).json(await decorateGuests(data || []));
+      } catch (decorateError) {
+        console.error('Guest invitation lookup error:', decorateError.message);
+        res.status(500).json({ error: 'Error leyendo invitaciones asociadas' });
+      }
       return;
     }
-    res.status(200).json(readLocalGuests().filter((g) => !g.archived_at));
+    res.status(200).json(await decorateGuests(readLocalGuests().filter((g) => !g.archived_at)));
     return;
   }
 
@@ -249,6 +304,10 @@ module.exports = async function handler(req, res) {
     const clean = normalizeGuestInput(payload);
     if (!clean.nombre || clean.nombre.split(/\s+/).filter(Boolean).length < 2) {
       res.status(400).json({ error: 'El nombre completo es obligatorio' });
+      return;
+    }
+    if (clean.cantidad_personas !== 1) {
+      res.status(400).json({ error: 'Registra a cada persona por separado; luego puedes reunirlas en una invitación compartida.' });
       return;
     }
 
@@ -290,8 +349,15 @@ module.exports = async function handler(req, res) {
       res.status(400).json({ error: 'El nombre completo es obligatorio' });
       return;
     }
-
     if (supabaseConfigured && supabase) {
+      if (clean.cantidad_personas > 1) {
+        const { data: current, error: currentError } = await supabase.from('guests')
+          .select('cantidad_personas').eq('id', id).is('archived_at', null).maybeSingle();
+        if (currentError || !current || current.cantidad_personas !== clean.cantidad_personas) {
+          res.status(400).json({ error: 'Cada persona debe tener su propio registro. Para resolver un cupo antiguo, revisa primero a quién incluye.' });
+          return;
+        }
+      }
       const { data, error } = await supabase
         .from('guests')
         .update(clean)
@@ -314,7 +380,26 @@ module.exports = async function handler(req, res) {
       res.status(404).json({ error: 'Invitado no encontrado' });
       return;
     }
+    if (clean.cantidad_personas > 1 && local[idx].cantidad_personas !== clean.cantidad_personas) {
+      res.status(400).json({ error: 'Cada persona debe tener su propio registro. Para resolver un cupo antiguo, revisa primero a quién incluye.' });
+      return;
+    }
     local[idx] = { ...local[idx], ...clean, updated_at: new Date().toISOString() };
+    const invitationRows = getLocalInvitations();
+    const invitation = invitationRows.find((row) => row.status === 'active'
+      && (row.members || []).some((member) => String(member.guest_id) === String(id) && member.active !== false));
+    if (invitation) {
+      invitation.needs_review = clean.cantidad_personas > 1;
+      if (invitation.group_type === 'individual') invitation.display_name = clean.nombre;
+      else if (invitation.group_type === 'couple') {
+        invitation.display_name = invitation.members
+          .filter((member) => member.active !== false)
+          .sort((a, b) => a.position - b.position)
+          .map((member) => local.find((guest) => String(guest.id) === String(member.guest_id))?.nombre)
+          .filter(Boolean).join(' y ');
+      }
+      saveLocalInvitations(invitationRows);
+    }
     writeLocalGuests(local);
     res.status(200).json(local[idx]);
     return;
@@ -332,28 +417,56 @@ module.exports = async function handler(req, res) {
     }
 
     if (action === 'regenerar_token') {
-      const newTok = newToken();
       if (supabaseConfigured && supabase) {
-        const { data, error } = await supabase
-          .from('guests')
-          .update({ token: newTok })
-          .eq('id', id)
-          .is('archived_at', null)
-          .select(PUBLIC_COLUMNS)
-          .single();
+        const membership = await getActiveMembership(id);
+        let token;
+        if (membership?.invitation_id) {
+          const { data, error } = await supabase.rpc('rotate_invitation_token', { p_invitation_id: membership.invitation_id });
+          if (error) {
+            console.error('Invitation token rotation error:', error.message);
+            res.status(error.code === '23505' ? 409 : 500).json({ error: 'No se pudo regenerar el enlace compartido' });
+            return;
+          }
+          token = data;
+        } else {
+          token = newToken();
+          const { error } = await supabase.from('guests').update({ token }).eq('id', id).is('archived_at', null);
+          if (error) { res.status(500).json({ error: 'Error regenerando token' }); return; }
+        }
+        const { data, error } = await supabase.from('guests').select(PUBLIC_COLUMNS).eq('id', id).single();
         if (error) {
           res.status(500).json({ error: 'Error regenerando token' });
           return;
         }
-        res.status(200).json(data);
+        res.status(200).json({ ...data, token, invitation_token: token, invitation_id: membership?.invitation_id || null });
         return;
       }
       const local = readLocalGuests();
       const idx = local.findIndex((g) => g.id === id && !g.archived_at);
       if (idx === -1) { res.status(404).json({ error: 'Invitado no encontrado' }); return; }
-      local[idx] = { ...local[idx], token: newTok, updated_at: new Date().toISOString() };
+      const records = getLocalInvitations();
+      const invitation = records.find((row) => row.status === 'active'
+        && (row.members || []).some((member) => String(member.guest_id) === String(id) && member.active !== false));
+      const newTok = newToken();
+      let memberToken = newTok;
+      if (invitation) {
+        invitation.token = newTok;
+        invitation.pass_token = newToken();
+        invitation.sent_at = null;
+        (invitation.members || []).filter((member) => member.active !== false).forEach((member) => {
+          const memberGuest = local.find((row) => String(row.id) === String(member.guest_id));
+          if (memberGuest) {
+            memberGuest.token = newToken();
+            memberGuest.invitacion_enviada = false;
+            memberGuest.fecha_invitacion_enviada = null;
+          }
+        });
+        memberToken = local[idx].token;
+        saveLocalInvitations(records);
+      }
+      local[idx] = { ...local[idx], token: memberToken, updated_at: new Date().toISOString() };
       writeLocalGuests(local);
-      res.status(200).json(local[idx]);
+      res.status(200).json({ ...local[idx], invitation_token: invitation?.token || newTok, invitation_id: invitation?.id || null });
       return;
     }
 
@@ -368,24 +481,37 @@ module.exports = async function handler(req, res) {
         fecha_invitacion_enviada: value ? new Date().toISOString() : null,
       };
       if (supabaseConfigured && supabase) {
-        const { data, error } = await supabase
-          .from('guests')
-          .update(patch)
-          .eq('id', id)
-          .is('archived_at', null)
-          .select(PUBLIC_COLUMNS)
-          .single();
-        if (error) {
-          res.status(500).json({ error: 'Error actualizando envío' });
-          return;
+        const membership = await getActiveMembership(id);
+        if (membership?.invitation_id) {
+          const { error } = await supabase.rpc('mark_invitation_sent', {
+            p_invitation_id: membership.invitation_id,
+            p_value: value,
+          });
+          if (error) { res.status(500).json({ error: 'Error actualizando envío' }); return; }
+        } else {
+          const { error } = await supabase.from('guests').update(patch).eq('id', id).is('archived_at', null);
+          if (error) { res.status(500).json({ error: 'Error actualizando envío' }); return; }
         }
+        const { data, error } = await supabase.from('guests').select(PUBLIC_COLUMNS).eq('id', id).single();
+        if (error) { res.status(500).json({ error: 'Error actualizando envío' }); return; }
         res.status(200).json(data);
         return;
       }
       const local = readLocalGuests();
       const idx = local.findIndex((g) => g.id === id && !g.archived_at);
       if (idx === -1) { res.status(404).json({ error: 'Invitado no encontrado' }); return; }
-      local[idx] = { ...local[idx], ...patch, updated_at: new Date().toISOString() };
+      const records = getLocalInvitations();
+      const invitation = records.find((row) => row.status === 'active'
+        && (row.members || []).some((member) => String(member.guest_id) === String(id) && member.active !== false));
+      const members = invitation ? (invitation.members || []).filter((member) => member.active !== false) : [{ guest_id: id }];
+      members.forEach((member) => {
+        const guest = local.find((row) => String(row.id) === String(member.guest_id));
+        if (guest && !guest.archived_at) Object.assign(guest, patch, { updated_at: new Date().toISOString() });
+      });
+      if (invitation) {
+        invitation.sent_at = patch.fecha_invitacion_enviada;
+        saveLocalInvitations(records);
+      }
       writeLocalGuests(local);
       res.status(200).json(local[idx]);
       return;
@@ -400,6 +526,11 @@ module.exports = async function handler(req, res) {
     const id = parseInt(parseBody(req.body).id, 10);
     if (!Number.isFinite(id)) {
       res.status(400).json({ error: 'id inválido' });
+      return;
+    }
+    const membership = await getActiveMembership(id);
+    if (membership?.invitation_id && membership.invitations?.group_type !== 'individual') {
+      res.status(409).json({ error: 'Primero separa la invitación compartida para conservar las respuestas y los enlaces del resto del grupo.' });
       return;
     }
     if (supabaseConfigured && supabase) {
@@ -422,7 +553,19 @@ module.exports = async function handler(req, res) {
     const local = readLocalGuests();
     const idx = local.findIndex((g) => g.id === id && !g.archived_at);
     if (idx === -1) { res.status(404).json({ error: 'Invitado no encontrado' }); return; }
+    const records = getLocalInvitations();
+    const invitation = records.find((row) => row.status === 'active'
+      && (row.members || []).some((member) => String(member.guest_id) === String(id) && member.active !== false));
     local[idx] = { ...local[idx], archived_at: new Date().toISOString(), token: newToken(), updated_at: new Date().toISOString() };
+    if (invitation) {
+      invitation.status = 'revoked';
+      invitation.replaced_at = new Date().toISOString();
+      invitation.members.filter((member) => member.active !== false).forEach((member) => {
+        member.active = false;
+        member.removed_at = invitation.replaced_at;
+      });
+      saveLocalInvitations(records);
+    }
     writeLocalGuests(local);
     res.status(200).json({ ok: true, archived: true });
     return;
