@@ -207,6 +207,8 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
 /* ─── MODAL ─── */
 #modal-overlay{position:fixed;inset:0;z-index:8000;background:rgba(38,26,20,.45);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s;padding:1rem;}
 #modal-overlay.show{opacity:1;pointer-events:all;}
+#import-overlay{position:fixed;inset:0;z-index:8100;background:rgba(38,26,20,.45);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s;padding:1rem;}
+#import-overlay.show{opacity:1;pointer-events:all;}
 .modal-box{background:var(--white);border-radius:24px;padding:2.2rem;width:min(520px,100%);max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg);position:relative;}
 .modal-box::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:24px 24px 0 0;background:linear-gradient(90deg,var(--green),var(--gold),var(--green));}
 .modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.6rem;}
@@ -229,6 +231,14 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
 .modal-save{flex:2;padding:.85rem;background:linear-gradient(135deg,var(--green),#3D5E3F);color:var(--white);border:none;border-radius:12px;font-family:'Poppins',sans-serif;font-size:.76rem;font-weight:500;cursor:pointer;letter-spacing:.08em;text-transform:uppercase;box-shadow:0 6px 18px rgba(90,122,92,.3);transition:transform .2s,box-shadow .2s;}
 .modal-save:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(90,122,92,.38);}
 .modal-save:disabled{opacity:.6;transform:none;}
+.import-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem;margin:1.2rem 0;}
+.import-summary-item{background:var(--ivory);border-radius:12px;padding:.8rem .9rem;}
+.import-summary-label{font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-soft);}
+.import-summary-value{font-family:'Cormorant Garamond',serif;font-size:1.5rem;font-weight:600;color:var(--green);margin-top:.15rem;}
+.import-breakdown{font-size:.72rem;color:var(--text-soft);line-height:1.8;}
+.import-warning{font-size:.72rem;color:var(--red);background:var(--red-pale);border:1px solid rgba(192,80,74,.18);border-radius:10px;padding:.8rem .9rem;margin-top:1rem;line-height:1.6;}
+.import-ack{display:flex;align-items:flex-start;gap:.55rem;font-size:.7rem;color:var(--text-soft);line-height:1.5;margin-top:.8rem;}
+.import-ack input{margin-top:.15rem;accent-color:var(--green);}
 
 /* ─── LINK MODAL ─── */
 .link-modal-code{background:var(--ivory);border:1.5px dashed rgba(90,122,92,.3);border-radius:12px;padding:1rem 1.1rem;font-size:.8rem;color:var(--text);word-break:break-all;line-height:1.6;user-select:all;}
@@ -314,6 +324,11 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
       <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
       <span>Exportar</span>
     </button>
+    <button class="btn-sm btn-outline" id="import-btn" type="button">
+      <svg viewBox="0 0 24 24"><path d="M5 20h14v-2H5v2zM11 16h2V8h4l-5-5-5 5h4v8z"/></svg>
+      <span>Importar lista</span>
+    </button>
+    <input id="import-file-input" type="file" accept=".json,application/json" hidden />
     <button class="btn-sm btn-outline" id="logout-btn">
       <svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
       <span>Salir</span>
@@ -517,6 +532,28 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
   </div>
 </div>
 
+<!-- ══ PREVISUALIZACIÓN DE IMPORTACIÓN ══ -->
+<div id="import-overlay" role="dialog" aria-modal="true" aria-labelledby="import-modal-title">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="import-modal-title">Revisar lista antes de importar</div>
+      <button class="modal-close" id="import-close-btn" aria-label="Cerrar">&times;</button>
+    </div>
+    <p id="import-file-name" style="font-size:.72rem;color:var(--text-soft);word-break:break-word"></p>
+    <div class="import-summary" id="import-summary"></div>
+    <div class="import-breakdown" id="import-breakdown"></div>
+    <div class="import-warning" id="import-warning" hidden></div>
+    <label class="import-ack" id="import-ack-wrap" hidden>
+      <input type="checkbox" id="import-ack" />
+      <span>Entiendo que la importación agrega nuevos registros y que los nombres coincidentes no se fusionan ni actualizan.</span>
+    </label>
+    <div class="modal-footer">
+      <button class="modal-cancel" id="import-cancel-btn">Cancelar</button>
+      <button class="modal-save" id="import-confirm-btn">Importar invitados</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ CONFIRM DIALOG ══ -->
 <div id="confirm-dialog" role="dialog" aria-modal="true">
   <div class="dialog-box">
@@ -564,6 +601,8 @@ let currentStatus = 'all';
 let currentSearch = '';
 let editingId = null;
 let linkModalGuestId = null;
+let guestsLoadError = null;
+let pendingImportPayload = null;
 
 /* ============================================================
    LOGIN (contraseña verificada en el servidor · cookie HttpOnly)
@@ -636,9 +675,11 @@ async function loadGuests(){
   try {
     guests = await api('/api/guests');
     if (!Array.isArray(guests)) guests = [];
+    guestsLoadError = null;
   } catch(e) {
     if (e.code === 401) { location.reload(); return; }
     guests = [];
+    guestsLoadError = e.message;
     showToast('No se pudo cargar la lista: ' + e.message);
   }
 }
@@ -730,6 +771,177 @@ document.getElementById('migrate-btn').addEventListener('click', async ()=>{
     showToast('No se pudo migrar: ' + e.message);
   } finally {
     btn.disabled = false;
+  }
+});
+
+/* ============================================================
+   IMPORTACIÓN DE ARCHIVO JSON CON VISTA PREVIA
+============================================================ */
+const importInput = document.getElementById('import-file-input');
+const importOverlay = document.getElementById('import-overlay');
+const importConfirmBtn = document.getElementById('import-confirm-btn');
+const importAck = document.getElementById('import-ack');
+
+function closeImportPreview(){
+  importOverlay.classList.remove('show');
+  pendingImportPayload = null;
+  importInput.value = '';
+}
+
+function normalizeComparableName(value){
+  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('es').replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, ' ');
+}
+
+function validateImportPayload(value){
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if(!value || typeof value !== 'object' || !uuidPattern.test(value.batch_id || '')
+      || !Array.isArray(value.guests) || value.guests.length < 1 || value.guests.length > 1000){
+    throw new Error('El archivo no contiene un lote válido de invitados.');
+  }
+  const allowedCategories = CATS.map(c=>c.id);
+  const normalized = value.guests.map((guest, index)=>{
+    const nombre = String(guest?.nombre || '').trim();
+    const pertenece = guest?.pertenece;
+    const categoria = guest?.categoria;
+    const cantidad = Number(guest?.cantidad_personas ?? 1);
+    const estado = guest?.estado_rsvp || null;
+    if(!nombre || nombre.length > 120 || !['novio','novia'].includes(pertenece)
+      || !allowedCategories.includes(categoria) || !Number.isInteger(cantidad) || cantidad < 1 || cantidad > 10
+      || ![null,'confirmado','no_asiste'].includes(estado)){
+      throw new Error(`El registro ${index + 1} tiene datos incompletos o no válidos.`);
+    }
+    return {
+      nombre, pertenece, categoria, cantidad_personas:cantidad,
+      telefono:String(guest?.telefono || '').trim().slice(0,30),
+      notas:String(guest?.notas || '').trim().slice(0,500),
+      enviada:Boolean(guest?.enviada),
+      fecha_enviada:guest?.fecha_enviada || null,
+      estado_rsvp:estado,
+      fecha_rsvp:guest?.fecha_rsvp || null,
+    };
+  });
+  return { batch_id:value.batch_id.toLowerCase(), guests:normalized };
+}
+
+function renderImportPreview(payload, fileName){
+  const rows = payload.guests;
+  const counts = {
+    total:rows.length,
+    people:rows.reduce((sum, guest)=>sum + guest.cantidad_personas, 0),
+    confirmed:rows.filter(guest=>guest.estado_rsvp === 'confirmado').length,
+    pending:rows.filter(guest=>!guest.estado_rsvp).length,
+  };
+  document.getElementById('import-file-name').textContent = fileName;
+  document.getElementById('import-summary').innerHTML = [
+    ['Invitados', counts.total], ['Personas autorizadas', counts.people],
+    ['Confirmados', counts.confirmed], ['Pendientes de respuesta', counts.pending],
+  ].map(([label, count])=>`<div class="import-summary-item"><div class="import-summary-label">${label}</div><div class="import-summary-value">${count}</div></div>`).join('');
+
+  const breakdown = [];
+  CATS.forEach(category=>{
+    const count = rows.filter(guest=>guest.categoria === category.id).length;
+    if(count) breakdown.push(`${category.label}: ${count}`);
+  });
+  const novio = rows.filter(guest=>guest.pertenece === 'novio').length;
+  const novia = rows.length - novio;
+  breakdown.push(`Lado del novio: ${novio}`, `Lado de la novia: ${novia}`);
+  document.getElementById('import-breakdown').textContent = breakdown.join(' · ');
+
+  const existingNames = new Set(guests.map(guest=>normalizeComparableName(guest.nombre)));
+  const matchingNames = rows.filter(guest=>existingNames.has(normalizeComparableName(guest.nombre))).length;
+  const existingConfirmed = guests.filter(guest=>guest.estado_rsvp === 'confirmado')
+    .reduce((sum, guest)=>sum + Math.max(1, Number(guest.cantidad_personas) || 1), 0);
+  const incomingConfirmed = rows.filter(guest=>guest.estado_rsvp === 'confirmado')
+    .reduce((sum, guest)=>sum + guest.cantidad_personas, 0);
+  const exceedsCapacity = existingConfirmed + incomingConfirmed > 150;
+  const warning = document.getElementById('import-warning');
+  const ackWrap = document.getElementById('import-ack-wrap');
+  importAck.checked = false;
+  const warningMessages = [];
+  if(matchingNames){
+    warningMessages.push(`Hay ${matchingNames} nombre(s) del archivo que ya aparecen en el panel. Importar agregará registros nuevos y podría duplicarlos; no actualiza ni combina invitados existentes.`);
+  }
+  if(exceedsCapacity){
+    warningMessages.push(`La lista contiene ${incomingConfirmed} confirmados y el panel ya tiene ${existingConfirmed}; superarían el cupo de 150. No se puede importar este lote hasta resolverlo.`);
+  }
+  if(warningMessages.length){
+    warning.textContent = warningMessages.join(' ');
+    warning.hidden = false;
+    ackWrap.hidden = !matchingNames;
+    importConfirmBtn.disabled = Boolean(exceedsCapacity || matchingNames);
+  } else {
+    warning.hidden = true;
+    ackWrap.hidden = true;
+    importConfirmBtn.disabled = false;
+  }
+}
+
+document.getElementById('import-btn').addEventListener('click', ()=>{
+  if(guestsLoadError){
+    showToast('Primero hay que resolver la lectura de invitados para evitar duplicados.');
+    return;
+  }
+  importInput.click();
+});
+
+importInput.addEventListener('change', async ()=>{
+  const file = importInput.files?.[0];
+  if(!file) return;
+  if(file.size > 1024 * 1024){
+    importInput.value = '';
+    showToast('El archivo supera el límite de 1 MB.');
+    return;
+  }
+  try {
+    const payload = validateImportPayload(JSON.parse(await file.text()));
+    pendingImportPayload = payload;
+    renderImportPreview(payload, file.name);
+    importOverlay.classList.add('show');
+    document.getElementById('import-cancel-btn').focus();
+  } catch(e) {
+    importInput.value = '';
+    showToast(e.message || 'No se pudo leer el archivo JSON.');
+  }
+});
+
+importAck.addEventListener('change', ()=>{
+  const capacityWarning = document.getElementById('import-warning').textContent.includes('superarían el cupo de 150');
+  importConfirmBtn.disabled = !importAck.checked || capacityWarning;
+});
+document.getElementById('import-close-btn').addEventListener('click', closeImportPreview);
+document.getElementById('import-cancel-btn').addEventListener('click', closeImportPreview);
+importOverlay.addEventListener('click', event=>{ if(event.target === importOverlay) closeImportPreview(); });
+document.addEventListener('keydown', event=>{
+  if(event.key === 'Escape' && importOverlay.classList.contains('show')) closeImportPreview();
+});
+
+importConfirmBtn.addEventListener('click', async ()=>{
+  if(!pendingImportPayload || importConfirmBtn.disabled) return;
+  if(guestsLoadError){
+    closeImportPreview();
+    showToast('No se importó: no se pudo verificar la lista actual.');
+    return;
+  }
+  importConfirmBtn.disabled = true;
+  importConfirmBtn.textContent = 'Importando…';
+  try {
+    const result = await api('/api/guests?import=1', {
+      method:'POST', body:JSON.stringify(pendingImportPayload),
+    });
+    const imported = Number(result.imported) || 0;
+    closeImportPreview();
+    await loadGuests();
+    renderAll();
+    showToast(result.replayed ? `Este lote ya estaba importado (${imported} invitados).` : `${imported} invitados importados correctamente.`);
+  } catch(e) {
+    showToast('No se pudo importar: ' + e.message);
+  } finally {
+    importConfirmBtn.textContent = 'Importar invitados';
+    if(importOverlay.classList.contains('show')){
+      const capacityWarning = document.getElementById('import-warning').textContent.includes('superarían el cupo de 150');
+      importConfirmBtn.disabled = capacityWarning || (!document.getElementById('import-ack-wrap').hidden && !importAck.checked);
+    }
   }
 });
 
