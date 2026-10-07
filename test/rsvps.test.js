@@ -108,6 +108,16 @@ async function groupGuests(cookie, guestIds, groupType = 'couple', displayName) 
   return res;
 }
 
+async function addInvitationMembers(cookie, invitationId, payload = {}) {
+  const res = createRes();
+  await invitationsHandler(createReq({
+    method: 'POST', url: '/api/invitations?action=add-members',
+    body: { invitation_id: invitationId, ...payload },
+    headers: { cookie },
+  }), res);
+  return res;
+}
+
 async function confirmMembers(token, responses, mensaje = '') {
   const res = createRes();
   await rsvpsHandler(createReq({
@@ -456,6 +466,79 @@ test('familia comparte un pase para sus integrantes y una pareja exige dos perso
 
   const rejectedCouple = await groupGuests(cookie, people.map((guest) => guest.id), 'couple');
   assert.equal(rejectedCouple.statusCode, 400);
+});
+
+test('agregar invitados existentes y nuevos conserva RSVP y renueva el enlace compartido', async () => {
+  resetData();
+  const cookie = await loginAdmin();
+  const ana = await createGuest(cookie, { nombre: 'Ana Pérez', cantidad_personas: 1 });
+  const luis = await createGuest(cookie, { nombre: 'Luis Pérez', cantidad_personas: 1 });
+  const eva = await createGuest(cookie, { nombre: 'Eva Pérez', cantidad_personas: 1 });
+  const couple = await groupGuests(cookie, [ana.id, luis.id], 'couple');
+  assert.equal(couple.statusCode, 201, JSON.stringify(couple.body));
+  const anaMember = couple.body.members.find((member) => String(member.guest_id) === String(ana.id));
+  const confirmed = await confirmMembers(couple.body.token, [{ member_id: anaMember.member_id, estado: 'confirmado' }]);
+  assert.equal(confirmed.statusCode, 200);
+
+  const oldToken = couple.body.token;
+  const oldPassToken = couple.body.pass_token;
+  const added = await addInvitationMembers(cookie, couple.body.id, {
+    guest_ids: [eva.id],
+    new_members: [{ nombre: 'Mía Pérez', pertenece: 'novia', categoria: 'amigos' }],
+  });
+  assert.equal(added.statusCode, 200, JSON.stringify(added.body));
+  assert.equal(added.body.group_type, 'family');
+  assert.equal(added.body.members.length, 4);
+  assert.equal(added.body.added_count, 2);
+  assert.equal(added.body.display_name, 'Familia Pérez');
+  assert.notEqual(added.body.token, oldToken);
+  assert.notEqual(added.body.pass_token, oldPassToken);
+  assert.equal(added.body.sent_at, null);
+
+  const obsoleteLink = createRes();
+  await guestHandler(createReq({ method: 'GET', url: `/api/guest?token=${oldToken}` }), obsoleteLink);
+  assert.deepEqual(obsoleteLink.body, { found: false });
+  const publicInvite = createRes();
+  await guestHandler(createReq({ method: 'GET', url: `/api/guest?token=${added.body.token}` }), publicInvite);
+  assert.equal(publicInvite.statusCode, 200);
+  assert.deepEqual(publicInvite.body.guest.members.map((member) => member.nombre), [
+    'Ana Pérez', 'Luis Pérez', 'Eva Pérez', 'Mía Pérez',
+  ]);
+  assert.equal(publicInvite.body.guest.members.find((member) => member.nombre === 'Ana Pérez').estado_rsvp, 'confirmado');
+  assert.equal(publicInvite.body.guest.members.find((member) => member.nombre === 'Mía Pérez').estado_rsvp, null);
+  const guests = JSON.parse(fs.readFileSync(GUESTS_FILE, 'utf8'));
+  const mia = guests.find((guest) => guest.nombre === 'Mía Pérez');
+  assert.equal(mia.pertenece, 'novia');
+  assert.equal(mia.categoria, 'amigos');
+  assert.equal(mia.cantidad_personas, 1);
+});
+
+test('no se puede ampliar un grupo después de registrar una entrada', async () => {
+  resetData();
+  const cookie = await loginAdmin();
+  const ana = await createGuest(cookie, { nombre: 'Ana Pérez', cantidad_personas: 1 });
+  const luis = await createGuest(cookie, { nombre: 'Luis Pérez', cantidad_personas: 1 });
+  const group = await groupGuests(cookie, [ana.id, luis.id], 'couple');
+  const invite = createRes();
+  await guestHandler(createReq({ method: 'GET', url: `/api/guest?token=${group.body.token}` }), invite);
+  const member = invite.body.guest.members[0];
+  await confirmMembers(group.body.token, [{ member_id: member.member_id, estado: 'confirmado' }]);
+  const receptionCookie = await loginReception();
+  const checkin = createRes();
+  await checkinHandler(createReq({
+    method: 'POST', url: '/api/checkin',
+    body: { pass_token: group.body.pass_token, member_ids: [member.member_id], request_id: '623e4567-e89b-42d3-a456-426614174000' },
+    headers: { cookie: receptionCookie },
+  }), checkin);
+  assert.equal(checkin.statusCode, 200, JSON.stringify(checkin.body));
+
+  const added = await addInvitationMembers(cookie, group.body.id, {
+    new_members: [{ nombre: 'Mía Pérez', pertenece: 'novia', categoria: 'amigos' }],
+  });
+  assert.equal(added.statusCode, 409);
+  assert.match(added.body.error, /entradas registradas/i);
+  const guests = JSON.parse(fs.readFileSync(GUESTS_FILE, 'utf8'));
+  assert.equal(guests.some((guest) => guest.nombre === 'Mía Pérez'), false);
 });
 
 test('editar nombre conserva RSVP y pase compartido y actualiza el nombre de la pareja', async () => {

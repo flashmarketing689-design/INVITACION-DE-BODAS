@@ -18,9 +18,18 @@ function parseBody(body) {
 function errorResponse(res, error, genericMessage) {
   console.error('Invitations API error:', error?.message || error);
   if (isMissingMigration(error)) {
-    res.status(503).json({ error: 'Primero ejecuta la migración 004 de invitaciones agrupadas en Supabase.' });
+    const migration = /add_invitation_members/i.test(String(error?.message || ''))
+      ? '007_add_invitation_members.sql para permitir agregar integrantes a una invitación.'
+      : '004_group_invitations_checkin.sql de invitaciones agrupadas en Supabase.';
+    res.status(503).json({ error: `Primero ejecuta la migración ${migration}` });
   } else if (error?.code === '23505' || error?.code === '22023') {
-    res.status(409).json({ error: error.message || 'La invitación cambió o incluye personas que ya están agrupadas.' });
+    const raw = String(error.message || '');
+    let message = raw || 'La invitación cambió o incluye personas que ya están agrupadas.';
+    if (/check.?in|checked in/i.test(raw)) message = 'No se puede modificar una invitación que ya tiene entradas registradas.';
+    else if (/already grouped|already in this invitation|split an existing group/i.test(raw)) message = 'La persona ya pertenece a un grupo. Separa primero esa invitación antes de volver a agruparla.';
+    else if (/invitation not found/i.test(raw)) message = 'No encontramos una invitación activa con esos datos. Recarga la lista.';
+    else if (/invalid|between two and one hundred|individually identified/i.test(raw)) message = 'Revisa los nombres y confirma que cada integrante tenga su propio registro.';
+    res.status(error.code === '22023' ? 400 : 409).json({ error: message });
   } else {
     res.status(500).json({ error: genericMessage });
   }
@@ -224,6 +233,144 @@ async function createGroup(payload, res) {
   res.status(201).json({ ...created, message: 'El enlace anterior de cada integrante quedó revocado; envía el enlace compartido nuevo.' });
 }
 
+function normalizeNewMembers(value) {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length > 99) return null;
+  const allowedCategories = ['familiares', 'amigos', 'companeros', 'iglesia', 'participantes'];
+  const members = value.map((row) => ({
+    nombre: String(row?.nombre || '').trim().replace(/\s+/g, ' ').slice(0, 120),
+    telefono: String(row?.telefono || '').trim().slice(0, 30) || null,
+    pertenece: row?.pertenece === 'novia' ? 'novia' : row?.pertenece === 'novio' ? 'novio' : '',
+    categoria: allowedCategories.includes(row?.categoria) ? row.categoria : '',
+  }));
+  if (members.some((member) => !member.nombre || member.nombre.split(/\s+/).length < 2
+      || !member.pertenece || !member.categoria)) return null;
+  return members;
+}
+
+async function addMembers(payload, res) {
+  const invitationId = typeof payload.invitation_id === 'string' ? payload.invitation_id.trim() : '';
+  const ids = Array.isArray(payload.guest_ids) ? payload.guest_ids.map((value) => Number(value)) : [];
+  const newMembers = normalizeNewMembers(payload.new_members);
+  const displayName = String(payload.display_name || '').trim().replace(/\s+/g, ' ').slice(0, 120);
+  if (!invitationId || !newMembers || (!ids.length && !newMembers.length)
+      || ids.some((id) => !Number.isSafeInteger(id) || id <= 0)
+      || new Set(ids).size !== ids.length || ids.length + newMembers.length > 99
+      || (displayName && displayName.length < 2)) {
+    res.status(400).json({ error: 'Revisa las personas que quieres agregar y el nombre de la invitación.' });
+    return;
+  }
+
+  if (supabaseConfigured && supabase) {
+    const { data, error } = await supabase.rpc('add_invitation_members', {
+      p_invitation_id: invitationId,
+      p_guest_ids: ids,
+      p_new_members: newMembers,
+      p_display_name: displayName || null,
+    });
+    if (error) throw error;
+    const result = Array.isArray(data) ? data[0] : data;
+    const invitation = await getInvitationByToken(result.token);
+    res.status(200).json({ ...invitation, added_count: Number(result.added_count) || 0,
+      message: 'Integrantes agregados. El enlace anterior dejó de funcionar; comparte el nuevo enlace.' });
+    return;
+  }
+
+  const guests = readJson(GUESTS_FILE);
+  const records = ensureLocalSingletons();
+  const invitation = records.find((row) => row.id === invitationId && row.status === 'active');
+  if (!invitation) { res.status(404).json({ error: 'Invitación activa no encontrada.' }); return; }
+  const currentMembers = (invitation.members || []).filter((member) => member.active !== false
+    && guests.some((guest) => String(guest.id) === String(member.guest_id) && !guest.archived_at));
+  const selected = ids.map((id) => guests.find((guest) => Number(guest.id) === id && !guest.archived_at));
+  if (invitation.needs_review || currentMembers.some((member) => {
+    const guest = guests.find((row) => String(row.id) === String(member.guest_id));
+    return !guest || Number(guest.cantidad_personas || 1) !== 1;
+  })) {
+    res.status(409).json({ error: 'Primero identifica a cada persona del registro antiguo.' });
+    return;
+  }
+  if (selected.some((guest) => !guest || Number(guest.cantidad_personas || 1) !== 1)
+      || currentMembers.some((member) => ids.some((id) => String(id) === String(member.guest_id)))) {
+    res.status(409).json({ error: 'Solo puedes agregar personas individuales que todavía no estén en esta invitación.' });
+    return;
+  }
+  const addedIds = new Set(ids.map(String));
+  const sourceInvitations = records.filter((row) => row.status === 'active'
+    && (row.members || []).some((member) => member.active !== false && addedIds.has(String(member.guest_id))));
+  if (sourceInvitations.some((row) => row.id === invitation.id || row.group_type !== 'individual'
+      || row.needs_review || (row.members || []).filter((member) => member.active !== false).length !== 1)) {
+    res.status(409).json({ error: 'Solo puedes agregar personas con invitación individual; separa primero los grupos existentes.' });
+    return;
+  }
+  const checkins = getLocalCheckins();
+  const allMemberIds = [...currentMembers.map((member) => String(member.guest_id)), ...ids.map(String)];
+  if (allMemberIds.some((id) => checkins.some((row) => String(row.guest_id) === id))) {
+    res.status(409).json({ error: 'No se puede modificar una invitación que ya tiene entradas registradas.' });
+    return;
+  }
+  const total = currentMembers.length + ids.length + newMembers.length;
+  if (total < 2 || total > 100) {
+    res.status(400).json({ error: 'Una invitación compartida debe incluir entre dos y cien personas.' });
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const nextId = guests.reduce((max, guest) => Math.max(max, Number(guest.id) || 0), 1000) + 1;
+  const createdGuests = newMembers.map((member, index) => ({
+    ...member,
+    id: nextId + index,
+    cantidad_personas: 1,
+    notas: null,
+    token: crypto.randomUUID(),
+    invitacion_enviada: false,
+    fecha_invitacion_enviada: null,
+    estado: 'pendiente',
+    estado_rsvp: null,
+    fecha_rsvp: null,
+    created_at: now,
+    updated_at: now,
+  }));
+  const additions = [...selected, ...createdGuests];
+  sourceInvitations.forEach((source) => {
+    source.status = 'replaced';
+    source.replaced_by = invitation.id;
+    source.replaced_at = now;
+    (source.members || []).forEach((member) => { member.active = false; member.removed_at = now; });
+  });
+  const orderedCurrent = [...currentMembers].sort((a, b) => (a.position || 0) - (b.position || 0));
+  const orderedGuests = [...orderedCurrent.map((member) => guests.find((guest) => String(guest.id) === String(member.guest_id))), ...additions];
+  const finalType = total === 2 ? 'couple' : 'family';
+  const fallbackName = finalType === 'couple'
+    ? orderedGuests.map((guest) => guest.nombre).join(' y ')
+    : invitation.group_type === 'family' ? invitation.display_name : defaultDisplayName('family', orderedGuests);
+  invitation.display_name = displayName || fallbackName;
+  invitation.group_type = finalType;
+  invitation.token = crypto.randomUUID();
+  invitation.pass_token = crypto.randomUUID();
+  invitation.sent_at = null;
+  invitation.updated_at = now;
+  [...currentMembers.map((member) => guests.find((guest) => String(guest.id) === String(member.guest_id))), ...additions]
+    .filter(Boolean)
+    .forEach((guest) => {
+      guest.invitacion_enviada = false;
+      guest.fecha_invitacion_enviada = null;
+      guest.updated_at = now;
+    });
+  const currentPosition = currentMembers.length;
+  additions.forEach((guest, index) => {
+    guest.token = crypto.randomUUID();
+    invitation.members.push({
+      public_id: crypto.randomUUID(), guest_id: guest.id, position: currentPosition + index, active: true,
+    });
+  });
+  writeJson(GUESTS_FILE, [...guests, ...createdGuests]);
+  saveLocalInvitations(records);
+  const created = await getInvitationByToken(invitation.token);
+  res.status(200).json({ ...created, added_count: additions.length,
+    message: 'Integrantes agregados. El enlace anterior dejó de funcionar; comparte el nuevo enlace.' });
+}
+
 async function splitGroup(invitationId, res) {
   if (typeof invitationId !== 'string' || !invitationId) {
     res.status(400).json({ error: 'invitation_id inválido' });
@@ -360,6 +507,7 @@ module.exports = async function handler(req, res) {
     const body = parseBody(req.body);
     switch (url.searchParams.get('action')) {
       case 'split': await splitGroup(body.invitation_id, res); return;
+      case 'add-members': await addMembers(body, res); return;
       case 'regenerate': await rotateLink(body.invitation_id, res); return;
       case 'mark-sent': await markSent(body.invitation_id, body.value, res); return;
       default: await createGroup(body, res);
