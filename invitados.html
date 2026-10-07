@@ -101,6 +101,7 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
 .f-btn.cat-amigos.active{background:var(--gold);border-color:var(--gold);}
 .f-btn.cat-companeros.active{background:var(--purple);border-color:var(--purple);}
 .f-btn.cat-iglesia.active{background:var(--blue);border-color:var(--blue);}
+.f-btn.cat-participantes.active{background:#A85D62;border-color:#A85D62;}
 .toolbar-add{margin-left:auto;}
 
 /* ─── OWNER TABS ─── */
@@ -358,6 +359,7 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
       <button class="f-btn cat-amigos" data-cat="amigos">Amigos</button>
       <button class="f-btn cat-companeros" data-cat="companeros">Compañeros</button>
       <button class="f-btn cat-iglesia" data-cat="iglesia">Hermanos</button>
+      <button class="f-btn cat-participantes" data-cat="participantes">Participantes</button>
     </div>
     <div class="filter-group" id="status-filters">
       <button class="f-btn active" data-status="all">Todos</button>
@@ -436,6 +438,7 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
           <option value="amigos">Amigos</option>
           <option value="companeros">Compañeros</option>
           <option value="iglesia">Hermanos de la Iglesia</option>
+          <option value="participantes">Participantes</option>
         </select>
         <div class="m-err">Selecciona una categoría.</div>
       </div>
@@ -544,6 +547,7 @@ const CATS = [
   { id:'amigos',     label:'Amigos',                color:'#A88530', bg:'rgba(201,168,76,.12)' },
   { id:'companeros', label:'Compañeros',            color:'#7A6AAD', bg:'rgba(122,106,173,.12)'},
   { id:'iglesia',    label:'Hermanos de la Iglesia',color:'#4A7AAD', bg:'rgba(74,122,173,.12)' },
+  { id:'participantes', label:'Participantes',       color:'#A85D62', bg:'rgba(168,93,98,.12)'  },
 ];
 
 const RSVP_LABELS = {

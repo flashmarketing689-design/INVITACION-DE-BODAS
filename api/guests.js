@@ -70,7 +70,7 @@ function newToken() {
 function normalizeGuestInput(payload) {
   const nombre = String(payload.nombre || '').trim().slice(0, 120);
   const pertenece = payload.pertenece === 'novia' ? 'novia' : 'novio';
-  const categoria = ['familiares', 'amigos', 'companeros', 'iglesia'].includes(payload.categoria)
+  const categoria = ['familiares', 'amigos', 'companeros', 'iglesia', 'participantes'].includes(payload.categoria)
     ? payload.categoria
     : 'familiares';
   const rawCantidad = Number(payload.cantidad_personas ?? payload.cantidad ?? 1);
@@ -150,11 +150,16 @@ function normalizeLegacyGuest(g) {
   const base = normalizeGuestInput(g || {});
   const date = g?.enviada && g?.fecha_enviada ? new Date(g.fecha_enviada) : null;
   const validDate = date && Number.isFinite(date.getTime()) ? date.toISOString() : null;
+  const rsvpDate = g?.fecha_rsvp ? new Date(g.fecha_rsvp) : null;
+  const validRsvpDate = rsvpDate && Number.isFinite(rsvpDate.getTime()) ? rsvpDate.toISOString() : null;
+  const rsvpState = ['confirmado', 'no_asiste'].includes(g?.estado_rsvp) ? g.estado_rsvp : null;
   return {
     ...base,
     invitacion_enviada: Boolean(g?.enviada),
     fecha_invitacion_enviada: validDate,
-    estado: g?.enviada ? 'enviada' : 'pendiente',
+    estado_rsvp: rsvpState,
+    fecha_rsvp: rsvpState ? validRsvpDate : null,
+    estado: rsvpState || (g?.enviada ? 'enviada' : 'pendiente'),
   };
 }
 

@@ -267,6 +267,32 @@ test('migración legacy es idempotente si el navegador reintenta el mismo lote',
   assert.equal(JSON.parse(fs.readFileSync(GUESTS_FILE, 'utf8')).length, 1);
 });
 
+test('importación conserva la categoría Participantes y el estado RSVP existente', async () => {
+  resetData();
+  const cookie = await loginAdmin();
+  const batchId = '323e4567-e89b-42d3-a456-426614174000';
+  const res = createRes();
+  await guestsHandler(createReq({
+    method: 'POST', url: '/api/guests?import=1',
+    body: {
+      batch_id: batchId,
+      guests: [{
+        nombre: 'Ana Pérez', pertenece: 'novio', categoria: 'participantes',
+        cantidad_personas: 1, estado_rsvp: 'confirmado', fecha_rsvp: '2026-10-07T12:00:00.000Z',
+      }],
+    },
+    headers: { cookie },
+  }), res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.imported, 1);
+  assert.equal(res.body.guests[0].pertenece, 'novio');
+  assert.equal(res.body.guests[0].categoria, 'participantes');
+  assert.equal(res.body.guests[0].estado_rsvp, 'confirmado');
+  assert.equal(res.body.guests[0].estado, 'confirmado');
+  assert.equal(res.body.guests[0].fecha_rsvp, '2026-10-07T12:00:00.000Z');
+});
+
 test('un lote legacy no puede reutilizar su idempotency key con otro contenido', async () => {
   resetData();
   const cookie = await loginAdmin();
