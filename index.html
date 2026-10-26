@@ -1602,7 +1602,7 @@ section {
     <h2 class="s-title reveal d1">Agregar al <em>Calendario</em></h2>
     <div class="divider reveal d2"></div>
     <div class="cal-btns">
-      <a href="https://www.google.com/calendar/render?action=TEMPLATE&text=Boda+de+Starlin+%26+Reneisy&dates=20261121T180000Z/20261121T230000Z&details=Boda+de+Starlin+Paulino+P%C3%A9rez+%26+Reneisy+Charles&location=El+Salto+de+Anamuya"
+      <a href="https://www.google.com/calendar/render?action=TEMPLATE&text=Boda+de+Starlin+%26+Reneisy&dates=20261121T200000Z/20261121T230000Z&details=Boda+de+Starlin+Paulino+P%C3%A9rez+%26+Reneisy+Charles&location=El+Salto+de+Anamuya"
          target="_blank" rel="noopener noreferrer" class="cal-btn reveal d1">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11zM7 11h5v5H7z"/></svg>
         Google Calendar
@@ -2115,7 +2115,7 @@ form.addEventListener('submit', async e=>{
 /* ─── ICS download ─── */
 window.downloadICS = function(e){
   e.preventDefault();
-  const ics = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Boda Starlin & Reneisy//ES\r\nBEGIN:VEVENT\r\nDTSTART:20261121T140000\r\nDTEND:20261121T230000\r\nSUMMARY:Boda de Starlin & Reneisy\r\nDESCRIPTION:Bodade Starlin Paulino Pérez & Reneisy Charles\r\nLOCATION:El Salto de Anamuya\\, Anamuya\\, República Dominicana\r\nEND:VEVENT\r\nEND:VCALENDAR';
+  const ics = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Boda Starlin & Reneisy//ES\r\nBEGIN:VEVENT\r\nDTSTART:20261121T200000Z\r\nDTEND:20261121T230000Z\r\nSUMMARY:Boda de Starlin & Reneisy\r\nDESCRIPTION:Bodade Starlin Paulino Pérez & Reneisy Charles\r\nLOCATION:El Salto de Anamuya\\, Anamuya\\, República Dominicana\r\nEND:VEVENT\r\nEND:VCALENDAR';
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([ics],{type:'text/calendar;charset=utf-8'}));
   a.download = 'boda-starlin-reneisy.ics';
