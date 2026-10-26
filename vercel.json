@@ -21,7 +21,7 @@
       ]
     },
     {
-      "source": "/invitation-share.js",
+      "source": "/(invitation-share.js|guest-removal.js)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
       ]

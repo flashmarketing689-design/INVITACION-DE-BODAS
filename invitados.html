@@ -596,6 +596,7 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
 <div id="toast"></div>
 
 <script src="/invitation-share.js?v=1"></script>
+<script src="/guest-removal.js?v=1"></script>
 <script>
 (function(){
 'use strict';
@@ -723,6 +724,7 @@ async function refreshGuestMembership(){
 }
 window.addEventListener('pageshow', event=>{ if(event.persisted) refreshGuestMembership(); });
 document.addEventListener('visibilitychange', refreshGuestMembership);
+window.addEventListener('storage', event=>{ if(event.key === GuestRemoval.eventKey) refreshGuestMembership(); });
 
 function guestLink(g){
   return InvitationShare.invitationUrl(g.invitation_token || g.token, location.origin);
@@ -1432,14 +1434,15 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closeModal(); cl
 function confirmDelete(id, nombre){
   showConfirm(
     'Eliminar invitado',
-    `¿Quitar a "${nombre}" de la lista? Su enlace quedará invalidado. La invitación, la respuesta y su historial se conservarán archivados.`,
+    GuestRemoval.confirmation({ nombre }),
     'Eliminar',
     async ()=>{
       try {
-        await api('/api/guests', { method:'DELETE', body: JSON.stringify({ id }) });
+        const result = await api('/api/guests', { method:'DELETE', body: JSON.stringify({ id }) });
+        GuestRemoval.announce();
         await loadGuests();
         renderAll();
-        showToast('Invitado quitado de la lista; su historial se conservó.');
+        showToast(GuestRemoval.resultMessage(result));
       } catch(e) {
         showToast('No se pudo eliminar: ' + e.message);
       }

@@ -576,53 +576,82 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  /* ─── DELETE: archivar la invitación y revocar su enlace sin borrar el historial ─── */
+  /* ─── DELETE: retirar una persona y actualizar su grupo de forma atómica ─── */
   if (req.method === 'DELETE') {
-    const id = parseInt(parseBody(req.body).id, 10);
-    if (!Number.isFinite(id)) {
+    const rawId = parseBody(req.body).id;
+    const id = ['number', 'string'].includes(typeof rawId) ? Number(rawId) : NaN;
+    if (!Number.isSafeInteger(id) || id <= 0) {
       res.status(400).json({ error: 'id inválido' });
       return;
     }
-    const membership = await getActiveMembership(id);
-    if (membership?.invitation_id && membership.invitations?.group_type !== 'individual') {
-      res.status(409).json({ error: 'Primero separa la invitación compartida para conservar las respuestas y los enlaces del resto del grupo.' });
-      return;
-    }
     if (supabaseConfigured && supabase) {
-      const { data, error } = await supabase
-        .from('guests')
-        .update({ archived_at: new Date().toISOString(), token: newToken() })
-        .eq('id', id)
-        .is('archived_at', null)
-        .select('id')
-        .maybeSingle();
+      const { data, error } = await supabase.rpc('archive_invitation_guest', { p_guest_id: id });
       if (error) {
         console.error('Guests archive error:', error.message);
+        if (['42883', 'PGRST202'].includes(error.code)) {
+          res.status(503).json({ error: 'Falta ejecutar 009_archive_guest_from_invitation.sql en Supabase para eliminar personas de forma segura.' });
+          return;
+        }
+        if (error.code === 'P0002') { res.status(404).json({ error: 'Invitado no encontrado' }); return; }
+        if (['40001', '40P01'].includes(error.code)) {
+          res.status(409).json({ error: 'La invitación cambió mientras se eliminaba. Actualiza la lista e inténtalo otra vez.' });
+          return;
+        }
         res.status(500).json({ error: 'Error archivando invitado' });
         return;
       }
-      if (!data) { res.status(404).json({ error: 'Invitado no encontrado' }); return; }
-      res.status(200).json({ ok: true, archived: true });
+      res.status(200).json(data);
       return;
     }
     const local = readLocalGuests();
-    const idx = local.findIndex((g) => g.id === id && !g.archived_at);
+    const idx = local.findIndex((g) => Number(g.id) === id);
     if (idx === -1) { res.status(404).json({ error: 'Invitado no encontrado' }); return; }
-    const records = getLocalInvitations();
+    if (local[idx].archived_at) {
+      res.status(200).json({ ok: true, archived: true, already_archived: true, link_changed: false, remaining_members: 0 });
+      return;
+    }
+    const records = ensureLocalSingletons();
     const invitation = records.find((row) => row.status === 'active'
       && (row.members || []).some((member) => String(member.guest_id) === String(id) && member.active !== false));
-    local[idx] = { ...local[idx], archived_at: new Date().toISOString(), token: newToken(), updated_at: new Date().toISOString() };
-    if (invitation) {
-      invitation.status = 'revoked';
-      invitation.replaced_at = new Date().toISOString();
-      invitation.members.filter((member) => member.active !== false).forEach((member) => {
+    const now = new Date().toISOString();
+    local[idx] = { ...local[idx], archived_at: now, token: newToken(), updated_at: now };
+    // Synchronous local fallback: no request may interleave these reads/writes.
+    records.forEach((record) => {
+      (record.members || []).filter((member) => Number(member.guest_id) === id && member.active !== false).forEach((member) => {
         member.active = false;
-        member.removed_at = invitation.replaced_at;
+        member.removed_at = now;
       });
-      saveLocalInvitations(records);
+    });
+    let remaining = [];
+    if (invitation) {
+      remaining = invitation.members.filter((member) => member.active !== false
+        && local.some((guest) => Number(guest.id) === Number(member.guest_id) && !guest.archived_at))
+        .sort((a, b) => a.position - b.position || Number(a.guest_id) - Number(b.guest_id));
+      invitation.token = newToken();
+      invitation.pass_token = newToken();
+      invitation.sent_at = null;
+      invitation.updated_at = now;
+      if (!remaining.length) {
+        invitation.status = 'revoked';
+        invitation.replaced_at = now;
+      } else {
+        const people = remaining.map((member, position) => {
+          member.position = position;
+          const guest = local.find((row) => Number(row.id) === Number(member.guest_id));
+          Object.assign(guest, { invitacion_enviada: false, fecha_invitacion_enviada: null,
+            estado: guest.estado_rsvp || 'pendiente', updated_at: now });
+          return guest;
+        });
+        invitation.group_type = people.length === 1 ? 'individual' : people.length === 2 ? 'couple' : 'family';
+        if (people.length <= 2) invitation.display_name = people.map((guest) => guest.nombre).join(' y ').slice(0, 120);
+        invitation.needs_review = people.some((guest) => Number(guest.cantidad_personas) > 1);
+      }
     }
+    saveLocalInvitations(records);
     writeLocalGuests(local);
-    res.status(200).json({ ok: true, archived: true });
+    res.status(200).json({ ok: true, archived: true, already_archived: false,
+      invitation_id: invitation?.id || null, remaining_members: remaining.length,
+      invitation_type: remaining.length ? invitation.group_type : null, link_changed: remaining.length > 0 });
     return;
   }
 

@@ -564,6 +564,7 @@ tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
   </div>
 </div>
 
+<script src="/guest-removal.js?v=1"></script>
 <script>
 (function(){
 'use strict';
@@ -658,6 +659,18 @@ async function renameGuest(guestId, nombre){
   return data;
 }
 
+async function removeGuest(guest){
+  if(!confirm(GuestRemoval.confirmation(guest)))return;
+  const res=await fetch('/api/guests',{
+    method:'DELETE',headers:{'Content-Type':'application/json'},credentials:'same-origin',
+    body:JSON.stringify({id:guest.id})
+  });
+  const result=await res.json().catch(()=>({}));
+  if(res.status===401)showLogin();
+  if(!res.ok)throw new Error(result.error||'No se pudo eliminar al invitado.');
+  GuestRemoval.announce();await renderAll();showToast(GuestRemoval.resultMessage(result));
+}
+
 /* ─── RENDER ─── */
 function esc(str){ return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -732,15 +745,16 @@ async function renderAll(){
         ${r.estado==='confirmado' || r.estado==='no_asiste' ? `
         <button class="del-btn" data-guest="${r.id}">
           <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-          Anular
+          Anular respuesta
         </button>` : ''}
+        <button type="button" class="del-btn remove-guest-btn" data-guest="${r.id}" aria-label="Eliminar a ${esc(r.nombre)} de la lista de invitados">Eliminar invitado</button>
         </div>
       </td>
     `;
     tbody.appendChild(tr);
   });
 
-  tbody.querySelectorAll('.del-btn').forEach(btn=>{
+  tbody.querySelectorAll('.del-btn:not(.remove-guest-btn)').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       pendingDeleteGuestId = parseInt(btn.dataset.guest, 10);
       const row = btn.closest('tr');
@@ -757,6 +771,12 @@ async function renderAll(){
       if(guest) openRenameDialog(guest);
     });
   });
+  tbody.querySelectorAll('.remove-guest-btn').forEach(btn=>btn.addEventListener('click',async()=>{
+    const guest=currentStats.registros.find(row=>String(row.id)===btn.dataset.guest);
+    if(!guest)return;
+    btn.disabled=true;
+    try{await removeGuest(guest);}catch(error){showToast(error.message);}finally{btn.disabled=false;}
+  }));
 }
 
 const renameDialog = document.getElementById('rename-dialog');
@@ -880,6 +900,10 @@ document.getElementById('confirm-dialog').addEventListener('click', e=>{
 
 /* ─── Auto-refresh every 30 seconds (solo si hay sesión) ─── */
 setInterval(()=>{ if(loginScreen.style.display === 'none') renderAll(); }, 30000);
+window.addEventListener('storage',event=>{
+  if(event.key===GuestRemoval.eventKey&&loginScreen.style.display==='none'
+    &&!document.querySelector('#rename-dialog.show, #confirm-dialog.show'))renderAll();
+});
 
 (async function boot(){
   try {

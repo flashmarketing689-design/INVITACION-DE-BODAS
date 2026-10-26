@@ -826,6 +826,96 @@ test('eliminar de la lista archiva, revoca el enlace y conserva el RSVP', async 
   assert.deepEqual(list.body, []);
 });
 
+test('eliminar un confirmado de un grupo actualiza lista, cupo, enlace y recepción sin tocar a los demás', async () => {
+  resetData();
+  const cookie = await loginAdmin();
+  const first = await createGuest(cookie, { nombre: 'Ana Pérez', cantidad_personas: 1 });
+  const second = await createGuest(cookie, { nombre: 'Luis Cruz', cantidad_personas: 1 });
+  const group = (await groupGuests(cookie, [first.id, second.id])).body;
+  assert.equal((await confirmMembers(group.token, group.members.map(member=>({member_id:member.member_id,estado:'confirmado'})))).statusCode, 200);
+  const responsesBefore = fs.readFileSync(LOCAL_RSVPS, 'utf8');
+  const reception = await loginReception();
+  const firstMember = group.members.find(member=>member.guest_id===first.id);
+  const entered = createRes();
+  await checkinHandler(createReq({method:'POST',url:'/api/checkin',headers:{cookie:reception},body:{pass_token:group.pass_token,member_ids:[firstMember.member_id],request_id:require('crypto').randomUUID()}}),entered);
+  assert.equal(entered.statusCode,200);
+  const entriesBefore = fs.readFileSync(LOCAL_CHECKINS,'utf8');
+  const removed = createRes();
+  await guestsHandler(createReq({method:'DELETE',url:'/api/guests',headers:{cookie},body:{id:first.id}}),removed);
+  assert.equal(removed.statusCode,200);
+  assert.equal(removed.body.remaining_members,1);
+  assert.equal(removed.body.link_changed,true);
+  const list=createRes();
+  await guestsHandler(createReq({method:'GET',url:'/api/guests',headers:{cookie}}),list);
+  assert.equal(list.body.length,1);
+  assert.equal(list.body[0].id,second.id);
+  assert.equal(list.body[0].invitation_type,'individual');
+  assert.equal(list.body[0].invitation_member_count,1);
+  assert.equal(list.body[0].estado_rsvp,'confirmado');
+  const invitations=createRes();
+  await invitationsHandler(createReq({method:'GET',url:'/api/invitations',headers:{cookie}}),invitations);
+  assert.equal(invitations.body.length,1);
+  const remaining=invitations.body[0];
+  assert.equal(remaining.display_name,'Luis Cruz');
+  assert.notEqual(remaining.token,group.token);
+  assert.notEqual(remaining.pass_token,group.pass_token);
+  assert.equal(fs.readFileSync(LOCAL_RSVPS,'utf8'),responsesBefore);
+  assert.equal(fs.readFileSync(LOCAL_CHECKINS,'utf8'),entriesBefore);
+  const stats=createRes();
+  await require('../api/admin/rsvps')(createReq({method:'GET',url:'/api/admin/rsvps',headers:{cookie}}),stats);
+  assert.equal(stats.body.personas_confirmadas,1);
+  for(const pass_token of [group.pass_token,remaining.pass_token]){
+    const stale=createRes();
+    await checkinHandler(createReq({method:'POST',url:'/api/checkin',headers:{cookie:reception},body:{pass_token,member_ids:[firstMember.member_id],request_id:require('crypto').randomUUID()}}),stale);
+    assert.equal(stale.statusCode,409);
+  }
+  assert.equal((await confirmMembers(group.token,[{member_id:firstMember.member_id,estado:'confirmado'}])).statusCode,404);
+  assert.equal((await confirmMembers(remaining.token,[{member_id:firstMember.member_id,estado:'confirmado'}])).statusCode,400);
+  const publicGroup=createRes();
+  await guestHandler(createReq({method:'GET',url:`/api/guest?token=${remaining.token}`}),publicGroup);
+  assert.deepEqual(publicGroup.body.guest.members.map(member=>member.nombre),['Luis Cruz']);
+  const repeated=createRes();
+  await guestsHandler(createReq({method:'DELETE',url:'/api/guests',headers:{cookie},body:{id:first.id}}),repeated);
+  assert.equal(repeated.body.already_archived,true);
+  const current=JSON.parse(fs.readFileSync(LOCAL_INVITATIONS,'utf8')).find(row=>row.id===remaining.id);
+  assert.equal(current.token,remaining.token);
+});
+
+test('eliminar integrantes reduce familia a pareja, individual y desactiva el último grupo', async () => {
+  resetData();
+  const cookie=await loginAdmin();
+  const people=[];
+  for(const nombre of ['Uno Test','Dos Test','Tres Test','Cuatro Test'])people.push(await createGuest(cookie,{nombre,cantidad_personas:1}));
+  const group=(await groupGuests(cookie,people.map(row=>row.id),'family','Familia Prueba')).body;
+  for(const [index,type] of ['family','couple','individual',null].entries()){
+    const result=createRes();
+    await guestsHandler(createReq({method:'DELETE',url:'/api/guests',headers:{cookie},body:{id:people[index].id}}),result);
+    assert.equal(result.statusCode,200);
+    assert.equal(result.body.invitation_type,type);
+    assert.equal(result.body.remaining_members,3-index);
+    const invitation=JSON.parse(fs.readFileSync(LOCAL_INVITATIONS,'utf8')).find(row=>row.id===group.id);
+    if(index===0)assert.equal(invitation.display_name,'Familia Prueba');
+    assert.deepEqual(invitation.members.filter(row=>row.active).map(row=>row.position),Array.from({length:3-index},(_,i)=>i));
+    if(index===3)assert.equal(invitation.status,'revoked');
+  }
+  const list=createRes();
+  await invitationsHandler(createReq({method:'GET',url:'/api/invitations',headers:{cookie}}),list);
+  assert.deepEqual(list.body,[]);
+});
+
+test('eliminar personas requiere administración, origen permitido e id entero válido', async () => {
+  resetData();
+  const cookie=await loginAdmin();
+  const guest=await createGuest(cookie,{cantidad_personas:1});
+  const before=fs.readFileSync(GUESTS_FILE,'utf8');
+  for(const [headers,id,status] of [[{},guest.id,401],[{cookie,origin:'https://example.invalid'},guest.id,403],...[null,true,[guest.id],{},0,-1,1.5,`${guest.id}abc`].map(id=>[{cookie},id,400]),[{cookie},999999,404]]){
+    const res=createRes();
+    await guestsHandler(createReq({method:'DELETE',url:'/api/guests',headers,body:{id}}),res);
+    assert.equal(res.statusCode,status);
+    assert.equal(fs.readFileSync(GUESTS_FILE,'utf8'),before);
+  }
+});
+
 test('POST sin token o con token inválido → 404 sin pistas', async () => {
   resetData();
   const res1 = await confirm('token-falso', 'confirmado');

@@ -58,6 +58,125 @@ async function snapshot() {
   return result;
 }
 
+async function archive(id) {
+  return (await db.query('select public.archive_invitation_guest($1) as result', [id])).rows[0].result;
+}
+
+test('SQL: retirar un confirmado de pareja conserva al otro y renueva enlace y QR', async () => {
+  const first = await guest('Persona Uno');
+  const second = await guest('Persona Dos');
+  const group = await add(first.invitation.id, [second.id]);
+  await db.query("insert into public.rsvp_respuestas(guest_id, estado) values ($1, 'confirmado'), ($2, 'confirmado')", [first.id, second.id]);
+  const previous = await snapshot();
+  const result = await archive(first.id);
+  assert.equal(result.link_changed, true);
+  assert.equal(result.remaining_members, 1);
+  assert.equal(result.invitation_type, 'individual');
+  const current = await snapshot();
+  const remaining = current.invitations.find(row => row.id === group.invitation_id);
+  assert.equal(remaining.status, 'active');
+  assert.equal(remaining.display_name, 'Persona Dos');
+  assert.notEqual(remaining.token, group.token);
+  assert.notEqual(remaining.pass_token, group.pass_token);
+  assert.equal(remaining.sent_at, null);
+  assert.deepEqual(current.rsvp_respuestas, previous.rsvp_respuestas);
+  assert.deepEqual(current.rsvp_historial, previous.rsvp_historial);
+  assert.ok(current.guests.find(row => row.id === first.id).archived_at);
+  const members = await activeMembers(group.invitation_id);
+  assert.deepEqual(members.map(row => [row.id, row.position, row.estado_rsvp]), [[second.id, 0, 'confirmado']]);
+  const total = await db.query("select sum(g.cantidad_personas)::integer as total from public.guests g where g.archived_at is null and g.estado_rsvp='confirmado'");
+  assert.equal(total.rows[0].total, 1);
+  // A replay must not rotate the survivor's new link again.
+  assert.equal((await archive(first.id)).already_archived, true);
+  assert.deepEqual(await snapshot(), current);
+});
+
+test('SQL: familia se reduce a pareja, individual y finalmente se revoca', async () => {
+  const people = [];
+  for (const name of ['Uno Test', 'Dos Test', 'Tres Test', 'Cuatro Test']) people.push(await guest(name));
+  const group = await add(people[0].invitation.id, people.slice(1).map(row => row.id), [], 'Familia Prueba');
+  await archive(people[1].id);
+  let current = await snapshot();
+  assert.equal(current.invitations.find(row => row.id === group.invitation_id).display_name, 'Familia Prueba');
+  assert.deepEqual((await activeMembers(group.invitation_id)).map(row => row.position), [0, 1, 2]);
+  const other = await guest('Cinco Test');
+  await add(group.invitation_id, [other.id]);
+  assert.deepEqual((await activeMembers(group.invitation_id)).map(row => row.position), [0, 1, 2, 3]);
+  await archive(other.id);
+  assert.equal((await archive(people[0].id)).invitation_type, 'couple');
+  assert.equal((await archive(people[2].id)).invitation_type, 'individual');
+  const last = await archive(people[3].id);
+  assert.equal(last.remaining_members, 0);
+  assert.equal(last.link_changed, false);
+  current = await snapshot();
+  assert.ok(current.invitations.every(row => row.status !== 'active'));
+  assert.equal(current.invitation_members.filter(row => row.active).length, 0);
+});
+
+test('SQL: registro de entrada archivado queda en historial y se rechazan pases y respuestas obsoletos', async () => {
+  const first = await guest('Persona Uno');
+  const second = await guest('Persona Dos');
+  const group = await add(first.invitation.id, [second.id]);
+  await db.query("insert into public.rsvp_respuestas(guest_id, estado) values ($1, 'confirmado'), ($2, 'confirmado')", [first.id, second.id]);
+  const initial = await snapshot();
+  const member = initial.invitation_members.find(row => row.guest_id === first.id && row.active);
+  await db.query("select public.register_invitation_checkins($1, $2::uuid[], 'Recepcion', gen_random_uuid())", [group.pass_token, [member.public_id]]);
+  const previous = await snapshot();
+  await archive(first.id);
+  const current = await snapshot();
+  assert.deepEqual(current.invitation_checkins, previous.invitation_checkins);
+  const invitation = current.invitations.find(row => row.id === group.invitation_id);
+  for (const pass of [group.pass_token, invitation.pass_token]) {
+    await assert.rejects(db.query("select public.register_invitation_checkins($1, $2::uuid[], 'Recepcion', gen_random_uuid())", [pass, [member.public_id]]), { code: '22023' });
+  }
+  const response = JSON.stringify([{member_id:member.public_id, estado:'confirmado', expected_estado:'confirmado'}]);
+  for (const token of [group.token, invitation.token]) {
+    await assert.rejects(db.query('select public.save_invitation_responses($1, $2::jsonb, null)', [token, response]), { code: '22023' });
+  }
+  assert.deepEqual(await snapshot(), current);
+});
+
+test('SQL: archivar directamente usa el trigger seguro y conserva la familia restante', async () => {
+  const first = await guest('Persona Uno');
+  const second = await guest('Persona Dos');
+  const group = await add(first.invitation.id, [second.id]);
+  await db.query('update public.guests set archived_at=now(), token=gen_random_uuid() where id=$1', [first.id]);
+  assert.deepEqual((await activeMembers(group.invitation_id)).map(row=>row.id), [second.id]);
+  assert.equal((await snapshot()).invitations.find(row=>row.id===group.invitation_id).status, 'active');
+});
+
+test('SQL: eliminación es atómica, rechaza ids inválidos y restringe permisos', async () => {
+  const person = await guest('Persona Uno');
+  const previous = await snapshot();
+  for (const id of [null, 0, -1]) await assert.rejects(archive(id), {code:'22023'});
+  await assert.rejects(archive(999999), {code:'P0002'});
+  for (const role of ['anon','authenticated']) {
+    await db.exec(`reset role; set role ${role};`);
+    await assert.rejects(archive(person.id), {code:'42501'});
+  }
+  await db.exec(`reset role;
+    create function public.test_archive_failure() returns trigger language plpgsql as $$ begin raise exception 'simulated failure'; end; $$;
+    create trigger zz_test_archive_failure after update of archived_at on public.guests for each row execute function public.test_archive_failure();
+    set role service_role;`);
+  try {
+    await assert.rejects(archive(person.id), {code:'P0001'});
+    assert.deepEqual(await snapshot(), previous);
+  } finally {
+    await db.exec('reset role; drop trigger zz_test_archive_failure on public.guests; drop function public.test_archive_failure(); set role service_role;');
+  }
+});
+
+test('SQL: 009 es repetible y no modifica invitados al instalarse', async () => {
+  const person = await guest('Persona Uno');
+  await db.query("insert into public.rsvp_respuestas(guest_id, estado) values ($1, 'confirmado')", [person.id]);
+  const previous = await snapshot();
+  await db.exec('reset role');
+  await db.exec(readMigration('009_archive_guest_from_invitation.sql'));
+  await db.exec(readMigration('009_archive_guest_from_invitation.sql'));
+  await db.exec('set role service_role');
+  assert.deepEqual(await snapshot(), previous);
+});
+
 test('SQL: agregar un invitado existente conserva RSVP y reemplaza el pase anterior', async () => {
   const first = await guest('Persona Uno');
   const second = await guest('Persona Dos');
