@@ -15,6 +15,12 @@ function parseBody(body) {
   return body;
 }
 
+function chunk(values, size) {
+  const out = [];
+  for (let i = 0; i < values.length; i += size) out.push(values.slice(i, i + size));
+  return out;
+}
+
 function errorResponse(res, error, genericMessage) {
   console.error('Invitations API error:', error?.message || error);
   if (isMissingMigration(error)) {
@@ -23,8 +29,9 @@ function errorResponse(res, error, genericMessage) {
       : '004_group_invitations_checkin.sql de invitaciones agrupadas en Supabase.';
     res.status(503).json({ error: `Primero ejecuta la migración ${migration}` });
   } else if (error?.code === '23505' || error?.code === '22023') {
+    // Nunca se reenvía el texto crudo de la base de datos al navegador.
     const raw = String(error.message || '');
-    let message = raw || 'La invitación cambió o incluye personas que ya están agrupadas.';
+    let message = 'La invitación cambió o incluye personas que ya están agrupadas.';
     if (/check.?in|checked in/i.test(raw)) message = 'No se puede modificar una invitación que ya tiene entradas registradas.';
     else if (/already grouped|already in this invitation|split an existing group/i.test(raw)) message = 'La persona ya pertenece a un grupo. Separa primero esa invitación antes de volver a agruparla.';
     else if (/invitation not found/i.test(raw)) message = 'No encontramos una invitación activa con esos datos. Recarga la lista.';
@@ -96,24 +103,31 @@ async function listInvitations() {
   if (error) throw error;
   const ids = (invitations || []).map((row) => row.id);
   if (!ids.length) return [];
-  const { data: memberRows, error: memberError } = await supabase.from('invitation_members')
-    .select('invitation_id, public_id, guest_id, position, guests!inner(id, nombre, telefono, pertenece, categoria, cantidad_personas, estado_rsvp, fecha_rsvp, archived_at, rsvp_respuestas(estado, fecha_respuesta))')
-    .in('invitation_id', ids).eq('active', true).is('guests.archived_at', null)
-    .order('position', { ascending: true });
-  if (memberError) throw memberError;
-  const guestIds = (memberRows || []).map((row) => row.guest_id);
-  let checkins = [];
-  if (guestIds.length) {
-    const { data, error: checkinError } = await supabase.from('invitation_checkins')
-      .select('guest_id, checked_in_at, operator_name').in('guest_id', guestIds);
-    if (checkinError) throw checkinError;
-    checkins = data || [];
+  // `.in()` viaja en la URL: con cientos de UUID se supera el límite de PostgREST.
+  // Se consulta por lotes para que la lista no falle al crecer.
+  const memberRows = [];
+  for (const batch of chunk(ids, 100)) {
+    const { data, error: memberError } = await supabase.from('invitation_members')
+      .select('invitation_id, public_id, guest_id, position, guests!inner(id, nombre, telefono, pertenece, categoria, cantidad_personas, estado_rsvp, fecha_rsvp, archived_at, rsvp_respuestas(estado, fecha_respuesta))')
+      .in('invitation_id', batch).eq('active', true).is('guests.archived_at', null)
+      .order('position', { ascending: true }).limit(5000);
+    if (memberError) throw memberError;
+    memberRows.push(...(data || []));
   }
+  const guestIds = memberRows.map((row) => row.guest_id);
+  const checkins = [];
+  for (const batch of chunk(guestIds, 200)) {
+    const { data, error: checkinError } = await supabase.from('invitation_checkins')
+      .select('guest_id, checked_in_at, operator_name').in('guest_id', batch);
+    if (checkinError) throw checkinError;
+    checkins.push(...(data || []));
+  }
+  const checkinByGuest = new Map(checkins.map((item) => [String(item.guest_id), item]));
   const membersByInvite = new Map();
   (memberRows || []).forEach((row) => {
     const guest = row.guests || {};
     const rsvp = (guest.rsvp_respuestas || [])[0] || {};
-    const checkin = checkins.find((item) => String(item.guest_id) === String(row.guest_id));
+    const checkin = checkinByGuest.get(String(row.guest_id));
     const values = membersByInvite.get(row.invitation_id) || [];
     values.push({
       member_id: row.public_id,
@@ -395,12 +409,15 @@ async function splitGroup(invitationId, res) {
     return;
   }
   const now = new Date().toISOString();
+  // Solo se separan los integrantes que siguen activos; los retirados antes
+  // no deben reaparecer con una invitación nueva.
+  const activeMembers = (invitation.members || []).filter((member) => member.active !== false);
   invitation.status = 'replaced';
   invitation.replaced_at = now;
   invitation.members.forEach((member) => { member.active = false; member.removed_at = now; });
   const guests = readJson(GUESTS_FILE);
   const created = [];
-  invitation.members.forEach((member) => {
+  activeMembers.forEach((member) => {
     const guest = guests.find((row) => String(row.id) === String(member.guest_id));
     if (!guest || guest.archived_at) return;
     guest.token = crypto.randomUUID();

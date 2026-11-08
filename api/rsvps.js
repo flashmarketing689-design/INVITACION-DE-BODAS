@@ -21,7 +21,7 @@ const { supabase, supabaseConfigured } = require('../lib/supabaseClient');
 const { allowRequest, clientIp } = require('../lib/rateLimit');
 const {
   getInvitationByToken, getGuestForLegacyToken, isMissingMigration,
-  getLocalInvitations, saveLocalInvitations,
+  getLocalInvitations, saveLocalInvitations, getLocalCheckins,
 } = require('../lib/invitations');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
@@ -182,6 +182,10 @@ async function handleConfirm(req, res) {
     if (error) {
       console.error('Grouped RSVP save error:', error.message);
       if (isCapacityReached(error)) { capacityErrorResponse(res); return; }
+      if (error.code === '23505') {
+        res.status(409).json({ error: 'Alguien de esta invitación ya registró su entrada, así que su respuesta no puede cambiar. Contacta a los anfitriones.' });
+        return;
+      }
       if (error.code === '22023' || error.code === '40001') {
         res.status(409).json({ error: 'La invitación cambió o una respuesta ya no pertenece a este grupo. Recarga la página.' });
         return;
@@ -389,13 +393,20 @@ async function handleDelete(req, res) {
     res.status(400).json({ error: 'guest_id inválido' });
     return;
   }
+  const alreadyCheckedIn = 'Esta persona ya registró su entrada; no se puede eliminar su confirmación.';
   if (supabaseConfigured && supabase) {
     const { error } = await supabase.from('rsvp_respuestas').delete().eq('guest_id', guestId);
     if (error) {
+      console.error('RSVP delete error:', error.message);
+      if (error.code === '23505') { res.status(409).json({ error: alreadyCheckedIn }); return; }
       res.status(500).json({ error: 'Error eliminando respuesta' });
       return;
     }
     res.status(200).json({ ok: true });
+    return;
+  }
+  if (getLocalCheckins().some((row) => String(row.guest_id) === String(guestId))) {
+    res.status(409).json({ error: alreadyCheckedIn });
     return;
   }
   const remaining = readLocal().filter((r) => String(r.guest_id) !== String(guestId));
