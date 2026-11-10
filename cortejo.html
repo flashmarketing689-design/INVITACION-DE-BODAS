@@ -90,27 +90,21 @@ body.busy main{opacity:.7;pointer-events:none}
   </nav>
 </header>
 <main class="wrap">
-  <section class="intro"><h2>Quién hace qué ese día</h2>
-    <p>Cada <strong>papel</strong> tiene su tarjeta con las personas que lo llevan: los padres que participan, padrinos, chambelanes, damas de honor, la niña del cartel, quien lleva los anillos… Una misma persona puede tener <strong>varios papeles</strong>. Crea los papeles que necesites con "Nuevo papel".</p></section>
   <section class="summary" id="summary" aria-label="Resumen del cortejo"></section>
   <div id="page-error" class="error" role="alert"></div>
   <div id="notices" role="status" aria-live="polite"></div>
   <h2 class="section" id="papeles">Papeles del cortejo</h2>
-  <p class="section-sub">Agrega personas a cada papel desde su tarjeta. Quien no asistirá se marca en rojo para que lo puedas reemplazar.</p>
   <div class="roles" id="roles"></div>
   <h2 class="section" id="por-persona">Por persona</h2>
-  <p class="section-sub">Todas las personas con algún papel y todo lo que tienen que hacer.</p>
   <div class="table-wrap"><table><thead><tr><th>Persona</th><th>Asistencia</th><th>Papeles</th><th class="add-btn">Agregar papel</th></tr></thead><tbody id="people-body"></tbody></table></div>
 </main>
 <div class="modal" id="add-modal" role="dialog" aria-modal="true" aria-labelledby="add-title">
   <form class="dialog" id="add-form">
     <h2 id="add-title">Agregar personas</h2>
-    <p id="add-sub"></p>
     <label class="sr-only" for="add-search">Buscar persona</label>
     <input type="search" id="add-search" placeholder="Buscar por nombre…" autocomplete="off">
     <div class="picker" id="add-picker"></div>
     <p class="dialog-note" id="add-count"></p>
-    <p class="dialog-note">¿No está en la lista? Primero agrégalo en <a href="invitados.html">Invitados</a>.</p>
     <p class="dialog-error" id="add-error" role="alert"></p>
     <div class="modal-actions"><span></span><div><button class="btn" id="add-cancel" type="button">Cancelar</button><button class="btn primary" id="add-save" type="submit" disabled>Agregar</button></div></div>
   </form>
@@ -124,7 +118,7 @@ body.busy main{opacity:.7;pointer-events:none}
     <div class="modal-actions"><button class="btn warn" id="role-delete" type="button" hidden>Eliminar papel</button><div><button class="btn" id="role-cancel" type="button">Cancelar</button><button class="btn primary" id="role-save" type="submit">Guardar</button></div></div>
   </form>
 </div>
-<div class="auth show" id="auth"><form class="auth-box" id="login-form"><h2>Acceso administrativo</h2><p>Inicia sesión con la clave de administración para organizar el cortejo.</p><input id="password" type="password" autocomplete="current-password" placeholder="Clave de administración" aria-label="Clave de administración" required><button class="btn primary" type="submit" style="width:100%;margin-top:.6rem">Entrar</button><div class="error" id="login-error"></div></form></div>
+<div class="auth show" id="auth"><form class="auth-box" id="login-form"><h2>Acceso administrativo</h2><input id="password" type="password" autocomplete="current-password" placeholder="Clave de administración" aria-label="Clave de administración" required><button class="btn primary" type="submit" style="width:100%;margin-top:.6rem">Entrar</button><div class="error" id="login-error"></div></form></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="/guest-removal.js?v=1"></script>
 <script src="/admin-common.js?v=1"></script>
@@ -195,7 +189,7 @@ function render() {
 
   const without = state.people.filter((p) => p.categoria === 'participantes' && !p.role_ids.length).sort(byName);
   const declined = state.people.filter((p) => p.role_ids.length && p.estado_rsvp === 'no_asiste').sort(byName);
-  $('notices').innerHTML = (without.length ? `<div class="pending"><h3>Participantes sin papel (${without.length})</h3><p>Están en la categoría "Participantes" pero todavía no tienen un papel asignado.</p><ul>${without.map((p) => `<li><span>${esc(p.nombre)}</span>${assignSelect(p)}</li>`).join('')}</ul></div>` : '')
+  $('notices').innerHTML = (without.length ? `<div class="pending"><h3>Participantes sin papel (${without.length})</h3><ul>${without.map((p) => `<li><span>${esc(p.nombre)}</span>${assignSelect(p)}</li>`).join('')}</ul></div>` : '')
     + (declined.length ? `<div class="warn-box"><strong>Ojo:</strong> ${declined.map((p) => `${esc(p.nombre)} (${p.role_ids.map((id) => esc(roleById(id)?.name || '')).join(', ')})`).join('; ')} respondió que no asistirá. Conviene reemplazar${declined.length === 1 ? 'la' : 'las'} en su papel.</div>` : '');
 
   $('roles').innerHTML = state.roles.map((role, index) => {
@@ -276,7 +270,6 @@ function openAdd(roleId) {
   if (!role) return;
   addingTo = roleId;
   $('add-title').textContent = `Agregar a «${role.name}»`;
-  $('add-sub').textContent = role.description || 'Elige a las personas que tendrán este papel.';
   $('add-search').value = ''; $('add-error').textContent = '';
   $('add-modal').classList.add('show');
   renderPicker();

@@ -120,8 +120,6 @@ body.busy .board{opacity:.7;pointer-events:none}
   </nav>
 </header>
 <main class="wrap">
-  <section class="intro" id="mesas-intro"><h2>Organiza a tus invitados por mesa</h2>
-    <p>Toca a un invitado y luego toca la mesa donde quieres sentarlo, o arrástralo hasta ella. Las parejas y familias se mueven juntas. Cada mesa tiene una <strong>sección</strong> (por ejemplo, Familia cercana de la novia o Iglesia) y la organización automática sienta a cada quien en la suya; puedes cambiarla con el lápiz de la mesa.</p></section>
   <section class="summary" id="summary" aria-label="Resumen de mesas"></section>
   <div id="page-error" class="error" role="alert"></div>
   <div class="notice" id="notices" role="status" aria-live="polite"></div>
@@ -150,12 +148,11 @@ body.busy .board{opacity:.7;pointer-events:none}
     <label>Nombre de la mesa<input type="text" id="edit-name" maxlength="40" required></label>
     <label>Lugares<input type="number" id="edit-capacity" min="1" max="30" required></label>
     <label>Sección de la mesa<select id="edit-section"></select></label>
-    <p class="fine">La organización automática sienta aquí a quienes corresponden a esta sección. También puedes mover a cualquiera a mano.</p>
     <p class="dialog-error" id="edit-error" role="alert"></p>
     <div class="modal-actions"><button class="btn warn" id="edit-clear" type="button">Vaciar esta mesa</button><div><button class="btn" id="edit-cancel" type="button">Cancelar</button><button class="btn primary" id="edit-save" type="submit">Guardar</button></div></div>
   </form>
 </div>
-<div class="auth show" id="auth"><form class="auth-box" id="login-form"><h2>Acceso administrativo</h2><p>Inicia sesión con la clave de administración para organizar las mesas.</p><input id="password" type="password" autocomplete="current-password" placeholder="Clave de administración" aria-label="Clave de administración" required><button class="btn primary" type="submit" style="width:100%;margin-top:.6rem">Entrar</button><div class="error" id="login-error"></div></form></div>
+<div class="auth show" id="auth"><form class="auth-box" id="login-form"><h2>Acceso administrativo</h2><input id="password" type="password" autocomplete="current-password" placeholder="Clave de administración" aria-label="Clave de administración" required><button class="btn primary" type="submit" style="width:100%;margin-top:.6rem">Entrar</button><div class="error" id="login-error"></div></form></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="/guest-removal.js?v=1"></script>
 <script src="/admin-common.js?v=1"></script>

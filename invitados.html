@@ -492,7 +492,6 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
             <option value="padre">Padre</option>
             <option value="hermano">Hermano(a)</option>
           </select>
-          <small id="f-parentesco-hint"></small>
         </div>
         <label class="m-check" id="mg-cercana" hidden><input type="checkbox" id="f-cercana"> <span>Familia cercana <small>(se sienta en las mesas 1 y 2)</small></span></label>
       </div>
@@ -1079,7 +1078,7 @@ function renderSections(){
   const visible = currentOwner === 'novio' ? novioGuests : currentOwner === 'novia' ? noviaGuests : filtered;
   const visibleInvitations = uniqueInvitations(visible);
   const groupCount = visibleInvitations.filter(isSharedInvitation).length;
-  document.getElementById('invitation-filter-note').textContent = `${visible.length} registro${visible.length===1?' mostrado':'s mostrados'} · ${visibleInvitations.length} ${visibleInvitations.length===1?'invitación única':'invitaciones únicas'} · ${groupCount} ${groupCount===1?'grupal':'grupales'}. Cada tarjeta identifica a una persona; los integrantes de un grupo comparten el mismo enlace.`;
+  document.getElementById('invitation-filter-note').textContent = `${visible.length} registro${visible.length===1?' mostrado':'s mostrados'} · ${visibleInvitations.length} ${visibleInvitations.length===1?'invitación única':'invitaciones únicas'} · ${groupCount} ${groupCount===1?'grupal':'grupales'}`;
 
   const sNovio = document.getElementById('section-novio');
   const sNovia = document.getElementById('section-novia');
@@ -1393,10 +1392,6 @@ const syncCercana = ()=>{
   document.getElementById('mg-cercana').hidden = !family;
   document.getElementById('mg-parentesco').hidden = !family;
   if(!family){ fCercana.checked = false; fParentesco.value = ''; }
-  const pertenece = document.getElementById('f-pertenece').value;
-  const side = pertenece === 'novia' ? 'la novia' : pertenece === 'novio' ? 'el novio' : '';
-  document.getElementById('f-parentesco-hint').textContent = fParentesco.value
-    ? `Cuenta como familia cercana: se sienta con la familia cercana de ${side || 'su lado'}.` : '';
   if(fParentesco.value){ fCercana.checked = true; fCercana.disabled = true; } else { fCercana.disabled = false; }
 };
 fCategoria.addEventListener('change', syncCercana);
