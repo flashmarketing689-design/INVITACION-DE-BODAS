@@ -256,9 +256,9 @@ function render() {
   // Por categoría, en el mismo orden que las mesas; dentro de cada una, por grupo y nombre.
   // Dentro de una sección, los grupos con madre o padre van primero, luego los de hermanos y después el resto.
   const groupRanks = new Map();
-  for (const person of state.people) groupRanks.set(person.invitation_id, Math.min(groupRanks.get(person.invitation_id) ?? 2, person.parentesco_order ?? 2));
+  for (const person of state.people) groupRanks.set(person.invitation_id, Math.min(groupRanks.get(person.invitation_id) ?? 999, person.parentesco_order ?? 999));
   const byKinship = (a, b) => (groupRanks.get(a.invitation_id) - groupRanks.get(b.invitation_id))
-    || (a.invitation_id === b.invitation_id ? (a.parentesco_order ?? 2) - (b.parentesco_order ?? 2) : 0)
+    || (a.invitation_id === b.invitation_id ? (a.parentesco_order ?? 999) - (b.parentesco_order ?? 999) : 0)
     || byGroupThenName(a, b);
   const sections = [...pool.reduce((map, person) => {
     if (!map.has(person.section_key)) map.set(person.section_key, { label: person.section_label, category: person.section_category, order: person.section_order, people: [] });

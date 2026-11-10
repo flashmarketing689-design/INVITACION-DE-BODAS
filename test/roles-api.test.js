@@ -60,13 +60,17 @@ test('el cortejo requiere sesión de administrador', async () => {
   assert.equal((await call('boda_admin=falso')).statusCode, 401);
 });
 
-test('empieza con los seis papeles y sin nadie asignado', async () => {
+test('empieza con Novios y los seis papeles del cortejo; los novios ya tienen su papel', async () => {
   reset();
   const cookie = await login();
   const res = await call(cookie);
   assert.equal(res.statusCode, 200);
-  assert.deepEqual(res.body.roles.map((item) => item.name), ['Padres que participan', 'Padrinos', 'Chambelanes', 'Damas de honor', 'Niña del cartel', 'Portador(a) de los anillos']);
-  assert.equal(res.body.summary.with_role, 0);
+  assert.deepEqual(res.body.roles.map((item) => item.name), ['Novios', 'Padres que participan', 'Padrinos', 'Chambelanes', 'Damas de honor', 'Niña del cartel', 'Portador(a) de los anillos']);
+  assert.equal(res.body.summary.with_role, 2, 'Starlin y Reneisy');
+  const novios = res.body.people.filter((p) => p.sin_invitacion);
+  assert.deepEqual(novios.map((p) => [p.nombre, p.pertenece]), [['Starlin Paulino Pérez', 'novio'], ['Reneisy', 'novia']]);
+  assert.deepEqual(role(res.body, 'Novios').guest_ids, novios.map((p) => p.id));
+  assert.equal(res.body.summary.participants_without_role, 0, 'los novios no son participantes sin papel');
 });
 
 test('la misma niña puede llevar el cartel y los anillos', async () => {
@@ -83,7 +87,7 @@ test('la misma niña puede llevar el cartel y los anillos', async () => {
   assert.deepEqual(person.role_ids, [cartel, anillos], 'en el orden de la lista de papeles');
   assert.deepEqual(role(state, 'Niña del cartel').guest_ids, [nina.id]);
   assert.deepEqual(role(state, 'Portador(a) de los anillos').guest_ids, [nina.id]);
-  assert.equal(state.summary.with_role, 2);
+  assert.equal(state.summary.with_role, 4, 'los dos novios más las dos personas');
   // Repetir no duplica; quitar un papel deja el otro.
   state = (await call(cookie, { method: 'POST', query: '?action=assign', body: { role_id: cartel, guest_ids: [nina.id] } })).body;
   assert.equal(role(state, 'Niña del cartel').guest_ids.length, 1);
@@ -138,7 +142,7 @@ test('crear, renombrar, ordenar y eliminar papeles', async () => {
   await call(cookie, { method: 'POST', query: '?action=assign', body: { role_id: paje, guest_ids: [nina.id] } });
   res = await call(cookie, { method: 'DELETE', body: { id: paje } });
   assert.equal(res.statusCode, 200);
-  assert.equal(res.body.roles.length, 6);
+  assert.equal(res.body.roles.length, 7);
   assert.equal(res.body.people.some((p) => p.id === nina.id), true);
   assert.deepEqual(res.body.people.find((p) => p.id === nina.id).role_ids, []);
   assert.equal((await call(cookie, { method: 'DELETE', body: { id: paje } })).statusCode, 404);
@@ -201,4 +205,36 @@ test('las mesas funcionan igual si el cortejo no está disponible', async () => 
   await tablesHandler(createReq({ method: 'GET', url: '/api/tables', headers: { cookie } }), res);
   assert.equal(res.statusCode, 200);
   assert.deepEqual(res.body.people.find((p) => p.id === a.id).roles, []);
+});
+
+test('agregar y quitar personas sin invitación, con papeles, sin tocar la lista de invitados', async () => {
+  reset();
+  const cookie = await login();
+  let res = await call(cookie, { method: 'POST', query: '?action=add-member', body: { nombre: ' Padre  Oficiante ', pertenece: 'novio' } });
+  assert.equal(res.statusCode, 200);
+  const persona = res.body.people.find((p) => p.nombre === 'Padre Oficiante');
+  assert.ok(persona.id < 0 && persona.sin_invitacion);
+  res = await call(cookie, { method: 'POST', query: '?action=assign', body: { role_id: role(res.body, 'Padrinos').id, guest_ids: [persona.id] } });
+  assert.deepEqual(role(res.body, 'Padrinos').guest_ids, [persona.id]);
+  assert.equal(res.body.summary.without_invitation, 3);
+  // No son invitados: no aparecen en la lista de invitados ni en las mesas.
+  const guestsRes = createRes();
+  await guestsHandler(createReq({ method: 'GET', url: '/api/guests', headers: { cookie } }), guestsRes);
+  assert.equal(guestsRes.body.length, 0);
+  const tablesRes = createRes();
+  await tablesHandler(createReq({ method: 'GET', url: '/api/tables', headers: { cookie } }), tablesRes);
+  assert.equal(tablesRes.body.people.length, 0);
+  // Quitar un papel y la persona entera
+  res = await call(cookie, { method: 'POST', query: '?action=unassign', body: { role_id: role(res.body, 'Padrinos').id, guest_id: persona.id } });
+  assert.deepEqual(role(res.body, 'Padrinos').guest_ids, []);
+  res = await call(cookie, { method: 'POST', query: '?action=remove-member', body: { id: -persona.id } });
+  assert.equal(res.body.people.some((p) => p.nombre === 'Padre Oficiante'), false);
+  assert.equal((await call(cookie, { method: 'POST', query: '?action=remove-member', body: { id: 999 } })).statusCode, 404);
+  for (const body of [{ nombre: 'X', pertenece: 'novio' }, { nombre: 'Ana Perez', pertenece: 'otro' }, {}]) {
+    assert.equal((await call(cookie, { method: 'POST', query: '?action=add-member', body })).statusCode, 400);
+  }
+  // Los novios del inicio se pueden quitar
+  const inicial = (await call(cookie)).body.people.find((p) => p.nombre === 'Reneisy');
+  res = await call(cookie, { method: 'POST', query: '?action=remove-member', body: { id: -inicial.id } });
+  assert.equal(res.body.summary.without_invitation, 1);
 });

@@ -222,7 +222,13 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
 .m-group input:focus,.m-group select:focus,.m-group textarea:focus{border-color:var(--green);}
 .m-group textarea{resize:vertical;min-height:70px;}
 .m-group.error input,.m-group.error select{border-color:var(--red);}
-.m-check{display:flex!important;align-items:flex-start;gap:.55rem;margin:.7rem 0 0!important;text-transform:none!important;letter-spacing:0!important;font-size:.78rem!important;color:var(--text)!important;cursor:pointer}.m-check[hidden]{display:none!important}.m-kin{margin-top:.8rem}.m-kin[hidden]{display:none}.m-kin small{display:block;margin-top:.3rem;font-size:.75rem;color:var(--text-soft)}.m-check input{width:18px;height:18px;margin-top:.1rem;accent-color:var(--green)}.m-check small{color:var(--text-soft);font-size:.75rem}
+.m-check{display:flex!important;align-items:flex-start;gap:.55rem;margin:.7rem 0 0!important;text-transform:none!important;letter-spacing:0!important;font-size:.78rem!important;color:var(--text)!important;cursor:pointer}.m-check[hidden]{display:none!important}.m-kin{margin-top:.8rem}.m-kin[hidden]{display:none}.kin-select-row{display:flex;flex-direction:column;gap:.5rem;align-items:stretch}.kin-select-row select{width:100%}.kin-select-row .btn-sm{align-self:flex-start;white-space:nowrap}
+.m-group label.m-check span{color:var(--text)}
+#kin-overlay{position:fixed;inset:0;z-index:8200;background:rgba(38,26,20,.45);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s;padding:1rem}
+#kin-overlay.show{opacity:1;pointer-events:all}
+.kin-row{display:flex;gap:.5rem;align-items:center;margin:.55rem 0;flex-wrap:wrap}.kin-row input{flex:1;min-width:10rem;border:1.5px solid rgba(90,122,92,.25);border-radius:12px;padding:.55rem .8rem;font-family:inherit;font-size:.85rem;background:var(--white);color:var(--text)}
+.kin-count{font-size:.8rem;color:var(--text-soft);min-width:5.5rem}.kin-error{color:var(--red);font-size:.8rem;min-height:1.2em;margin:.5rem 0 0}
+.m-kin small{display:block;margin-top:.3rem;font-size:.75rem;color:var(--text-soft)}.m-check input{width:18px;height:18px;margin-top:.1rem;accent-color:var(--green)}.m-check small{color:var(--text-soft);font-size:.75rem}
 .m-err{font-size:.75rem;color:var(--red);margin-top:.3rem;display:none;}
 .m-group.error .m-err{display:block;}
 .m-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
@@ -486,12 +492,15 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
         <div class="m-err">Selecciona una categoría.</div>
         <div class="m-kin" id="mg-parentesco" hidden>
           <label for="f-parentesco">Parentesco</label>
-          <select id="f-parentesco">
-            <option value="">Otro familiar</option>
-            <option value="madre">Madre</option>
-            <option value="padre">Padre</option>
-            <option value="hermano">Hermano(a)</option>
-          </select>
+          <div class="kin-select-row">
+            <select id="f-parentesco">
+              <option value="">Otro familiar</option>
+              <option value="madre">Madre</option>
+              <option value="padre">Padre</option>
+              <option value="hermano">Hermano(a)</option>
+            </select>
+            <button type="button" class="btn-sm btn-outline" id="kin-manage-btn">Administrar</button>
+          </div>
         </div>
         <label class="m-check" id="mg-cercana" hidden><input type="checkbox" id="f-cercana"> <span>Familia cercana <small>(se sienta en las mesas 1 y 2)</small></span></label>
       </div>
@@ -532,6 +541,20 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
 </div>
 
 <!-- ══ MODAL ENLACE PERSONAL ══ -->
+<div id="kin-overlay" role="dialog" aria-modal="true" aria-label="Parentescos">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">Parentescos</div>
+      <button class="modal-close" id="kin-close-btn" type="button" aria-label="Cerrar">&times;</button>
+    </div>
+    <div id="kin-list"></div>
+    <div class="kin-row">
+      <input id="kin-new" maxlength="40" placeholder="Nuevo parentesco (ej. Abuelo(a))" aria-label="Nuevo parentesco" autocomplete="off">
+      <button class="btn-sm btn-green" id="kin-add-btn" type="button">Agregar</button>
+    </div>
+    <p class="kin-error" id="kin-error" role="alert"></p>
+  </div>
+</div>
 <div id="link-overlay" role="dialog" aria-modal="true" aria-label="Enlace de invitación">
   <div class="modal-box">
     <div class="modal-header">
@@ -739,6 +762,7 @@ async function loadGuests(){
     if (!Array.isArray(guests)) guests = [];
     guestsLoadError = null;
     await loadRoleNames();
+    await loadKinships();
   } catch(e) {
     if (e.code === 401) return; // sessionExpired() ya mostró el inicio de sesión
     guests = [];
@@ -1384,8 +1408,21 @@ const fPertenece = document.getElementById('f-pertenece');
 const fCategoria = document.getElementById('f-categoria');
 const fCercana   = document.getElementById('f-cercana');
 const fParentesco = document.getElementById('f-parentesco');
-const KIN = { madre:'Madre', padre:'Padre', hermano:'Hermano(a)' };
-const kinLabel = (kin, pertenece)=> KIN[kin] ? `${KIN[kin]} ${pertenece==='novia' ? 'de la novia' : pertenece==='novio' ? 'del novio' : ''}`.trim() : '';
+// Parentescos: lista editable (Administrar). Mientras no cargue, valen los tres iniciales.
+let kinships = [{key:'madre',name:'Madre',count:0},{key:'padre',name:'Padre',count:0},{key:'hermano',name:'Hermano(a)',count:0}];
+const kinLabel = (kin, pertenece)=>{
+  const item = kinships.find(k=>k.key===kin);
+  return item ? `${item.name} ${pertenece==='novia' ? 'de la novia' : pertenece==='novio' ? 'del novio' : ''}`.trim() : '';
+};
+function renderKinshipOptions(){
+  const keep = fParentesco.value;
+  fParentesco.innerHTML = '<option value="">Otro familiar</option>' + kinships.map(k=>`<option value="${esc(k.key)}">${esc(k.name)}</option>`).join('');
+  fParentesco.value = kinships.some(k=>k.key===keep) ? keep : '';
+}
+async function loadKinships(){
+  try { kinships = (await api('/api/kinships')).kinships; } catch(e) { /* sin la migración 015 se usan los tres iniciales */ }
+  renderKinshipOptions();
+}
 // El parentesco y la familia cercana solo aplican a "Familiares"; quien tiene parentesco ya es familia cercana.
 const syncCercana = ()=>{
   const family = fCategoria.value === 'familiares';
@@ -1492,7 +1529,61 @@ saveBtn.addEventListener('click', saveGuest);
 document.getElementById('modal-cancel-btn').addEventListener('click', closeModal);
 document.getElementById('modal-close-btn').addEventListener('click', closeModal);
 overlay.addEventListener('click', e=>{ if(e.target===overlay) closeModal(); });
-document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closeModal(); closeLinkModal(); } });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ if(kinOverlay.classList.contains('show')) closeKinships(); else { closeModal(); closeLinkModal(); } } });
+
+/* ============================================================
+   ADMINISTRAR PARENTESCOS (añadir, renombrar y quitar)
+============================================================ */
+const kinOverlay = document.getElementById('kin-overlay');
+const kinError = document.getElementById('kin-error');
+function renderKinshipManager(){
+  document.getElementById('kin-list').innerHTML = kinships.map(k=>`
+    <div class="kin-row" data-kin="${esc(k.key)}">
+      <input value="${esc(k.name)}" maxlength="40" aria-label="Nombre del parentesco ${esc(k.name)}">
+      <span class="kin-count">${k.count||0} persona${(k.count||0)===1?'':'s'}</span>
+      <button type="button" class="btn-sm btn-outline" data-kin-save>Guardar</button>
+      <button type="button" class="btn-sm btn-outline" data-kin-del>Eliminar</button>
+    </div>`).join('') || '<p class="kin-count">Todavía no hay parentescos.</p>';
+}
+async function kinRequest(method, body){
+  kinError.textContent = '';
+  try {
+    kinships = (await api('/api/kinships', { method, body: JSON.stringify(body) })).kinships;
+    renderKinshipManager(); renderKinshipOptions();
+    await loadGuests(); renderAll();
+    return true;
+  } catch(e) { kinError.textContent = e.message; return false; }
+}
+async function openKinships(){
+  kinError.textContent = '';
+  renderKinshipManager(); // ya con los datos que tiene la página; abajo se refrescan
+  kinOverlay.classList.add('show');
+  document.getElementById('kin-new').focus();
+  try { kinships = (await api('/api/kinships')).kinships; renderKinshipOptions(); renderKinshipManager(); }
+  catch(e) { kinError.textContent = e.message; }
+}
+function closeKinships(){ kinOverlay.classList.remove('show'); }
+document.getElementById('kin-manage-btn').addEventListener('click', openKinships);
+document.getElementById('kin-close-btn').addEventListener('click', closeKinships);
+kinOverlay.addEventListener('click', e=>{ if(e.target===kinOverlay) closeKinships(); });
+document.getElementById('kin-add-btn').addEventListener('click', async e=>{
+  const input = document.getElementById('kin-new');
+  const button = e.currentTarget;
+  if(!input.value.trim()){ kinError.textContent = 'Escribe el nombre del parentesco.'; return; }
+  button.disabled = true;
+  if(await kinRequest('POST', { name: input.value })) input.value = '';
+  button.disabled = false;
+});
+document.getElementById('kin-list').addEventListener('click', async e=>{
+  const row = e.target.closest('[data-kin]');
+  if(!row) return;
+  const key = row.dataset.kin, item = kinships.find(k=>k.key===key);
+  if(e.target.closest('[data-kin-save]')) await kinRequest('PATCH', { key, name: row.querySelector('input').value });
+  if(e.target.closest('[data-kin-del]') && item){
+    const n = item.count || 0;
+    if(confirm(`¿Eliminar el parentesco «${item.name}»?${n ? ` Las ${n} persona${n===1?'':'s'} que lo tienen seguirán como familia cercana, sin parentesco.` : ''}`)) await kinRequest('DELETE', { key });
+  }
+});
 
 /* ============================================================
    ELIMINAR

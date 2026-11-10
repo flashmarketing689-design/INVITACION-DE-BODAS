@@ -24,10 +24,10 @@ Frontend estático + funciones serverless en `api/` (Vercel) + Supabase como bas
 | `ADMIN_SESSION_SECRET` | recomendada | ≥ 32 caracteres; si falta se usa la service key |
 
 ## Base de datos
-Ejecuta en el SQL Editor de Supabase, en orden, los archivos de `migrations/` (001 → 014).
+Ejecuta en el SQL Editor de Supabase, en orden, los archivos de `migrations/` (001 → 015).
 La 010 corrige la separación de grupos con personas eliminadas, protege las
 confirmaciones de quienes ya entraron y sincroniza el teléfono. La 011 crea el módulo de mesas y la 012 añade las secciones de las mesas y la marca de familia cercana
-(ejecútala antes de desplegar esa versión) la 013 añade el parentesco de los familiares y la 014 el cortejo
+(ejecútala antes de desplegar esa versión) la 013 añade el parentesco de los familiares, la 014 el cortejo y la 015 los parentescos editables y los novios del cortejo
 (ejecuta cada una antes de desplegar la versión que la usa).
 
 ## Mesas
@@ -45,7 +45,7 @@ Son 12 mesas de 10 lugares (el límite lo garantiza la base de datos). Cada mesa
 | 11 y 12 | Amigos (los compañeros se sientan aquí) |
 
 La sección de cada mesa se cambia con el lápiz de la mesa. En la ficha de un invitado de la categoría
-"Familiares" se puede indicar el **parentesco** (madre, padre o hermano/a; el lado sale de su lista: "Madre de la novia",
+"Familiares" se puede indicar el **parentesco** (madre, padre, hermano/a y los que añadas con "Administrar"; el lado sale de su lista: "Madre de la novia",
 "Padre del novio"…). Quien tiene parentesco cuenta como **familia cercana**; para otros familiares cercanos
 (abuelos, tíos…) hay una casilla "Familia cercana". En la lista de "Sin mesa" la familia cercana aparece
 con madre y padre primero y luego los hermanos.
@@ -67,6 +67,7 @@ honor, Niña del cartel y Portador(a) de los anillos; se pueden crear, renombrar
 - **Por papel** y **por persona**: la segunda vista muestra de un vistazo todo lo que hace cada quien.
 - Avisa de los *participantes sin papel* (categoría "Participantes" sin ningún papel) y de quienes tienen un papel
   pero respondieron que **no asistirán**.
+- **Novios y otras personas sin invitación:** los novios vienen como primer papel ("Novios"). Con "Persona sin invitación" se agrega a quien participa sin ser invitado (por ejemplo, el oficiante): sin enlace ni QR, y sin contar en las 150 personas ni en las mesas.
 - Los papeles se ven también en las tarjetas de **Invitados** y junto al nombre en **Mesas**. Tener un papel no
   cambia la categoría ni la mesa de la persona. Se puede imprimir.
 

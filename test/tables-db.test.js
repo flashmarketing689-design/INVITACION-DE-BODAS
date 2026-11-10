@@ -147,7 +147,7 @@ test('SQL: el parentesco solo vale para familiares cercanos y se valida', async 
   await assert.rejects(db.query("update public.guests set parentesco = 'madre' where id = $1", [madre.id]), { code: '23514' }, 'el parentesco exige familia cercana');
   await db.query("update public.guests set parentesco = 'madre', cercana = true where id = $1", [madre.id]);
   for (const kin of ['padre', 'hermano']) await db.query('update public.guests set parentesco = $2 where id = $1', [madre.id, kin]);
-  await assert.rejects(db.query("update public.guests set parentesco = 'tio' where id = $1", [madre.id]), { code: '23514' });
+  await assert.rejects(db.query("update public.guests set parentesco = 'tio' where id = $1", [madre.id]), { code: '23503' }, 'solo valen los parentescos que existen');
   await assert.rejects(db.query("update public.guests set cercana = false where id = $1", [madre.id]), { code: '23514' }, 'quien tiene parentesco sigue siendo cercano');
   await assert.rejects(db.query("update public.guests set categoria = 'amigos' where id = $1", [madre.id]), { code: '23514' });
   await db.query("update public.guests set parentesco = null, cercana = false, categoria = 'amigos' where id = $1", [madre.id]);

@@ -18,6 +18,7 @@ const { supabase, supabaseConfigured } = require('../lib/supabaseClient');
 const { DATA_DIR, ensureLocalSingletons } = require('../lib/invitations');
 const T = require('../lib/tables');
 const { listInvitations } = require('./invitations');
+const kinshipsApi = require('./kinships');
 
 const LOCAL_FILE = path.join(DATA_DIR, 'tables_local.json');
 
@@ -150,7 +151,7 @@ async function loadAll() {
     const active = invitations.flatMap((invitation) => (invitation.members || []).map((member) => member.guest_id));
     state = T.pruneAssignments(state, active);
   }
-  const people = T.buildPeople(invitations, state.assignments, await adapter.familyInfo());
+  const people = T.buildPeople(invitations, state.assignments, await adapter.familyInfo(), await kinshipsApi.definitions());
   const roleNames = await guestRoleNames();
   for (const person of people) person.roles = roleNames.get(person.id) || [];
   return { state, people };
