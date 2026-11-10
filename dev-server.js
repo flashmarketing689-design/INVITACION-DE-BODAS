@@ -25,7 +25,7 @@ try {
 const ROOT = __dirname;
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const PUBLIC_FILES = new Set([
-  'index.html', 'invitados.html', 'admin.html', 'invitaciones.html', 'recepcion.html',
+  'index.html', 'invitados.html', 'admin.html', 'invitaciones.html', 'mesas.html', 'recepcion.html',
   'admin-shell.css', 'admin-shell.js', 'invitation-share.js', 'guest-removal.js', 'admin-common.js', 'foto-pareja-social.png',
   'favicon.svg', 'foto-pareja.jpg', 'musica-boda.mp3', 'vendor/zxing-browser-0.2.1.min.js',
 ]);
