@@ -25,3 +25,9 @@ test('las otras pantallas leen los papeles sin depender de ellos', () => {
   assert.match(guests, /async function loadRoleNames\(\)[\s\S]*catch\(e\) \{ roleNames = new Map\(\); \}/, 'si falla, las tarjetas se ven igual');
   assert.match(fs.readFileSync(path.join(root, 'mesas.html'), 'utf8'), /person\.roles \|\| \[\]/);
 });
+
+test('se pueden crear papeles desde el selector de cada persona y desde una tarjeta al final', () => {
+  assert.match(html, /<option value="__new">[^<]*Crear papel nuevo/);
+  assert.match(html, /data-new-role/);
+  assert.match(html, /assignAfterCreate/, 'el papel creado desde el selector se asigna a esa persona');
+});
