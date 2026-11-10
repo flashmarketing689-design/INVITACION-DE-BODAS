@@ -152,6 +152,11 @@ test('la organización automática sienta a cada grupo completo en la mesa de su
   assert.equal(tableOf(res.body, participante.id), 7);
   assert.equal(res.body.summary.unseated, 0);
   assert.equal(res.body.people.find((p) => p.id === close[0].id).cercana, true);
+  const sectionOf = (guest) => res.body.people.find((p) => p.id === guest.id).section_label;
+  assert.equal(sectionOf(close[0]), 'Familia cercana de la novia');
+  assert.equal(sectionOf(tios[0]), 'Familiares del novio');
+  assert.equal(sectionOf(pareja[0]), 'Amigos de la novia');
+  assert.equal(sectionOf(iglesia), 'Iglesia');
   // Repetir no mueve a nadie.
   assert.equal((await call(cookie, { method: 'POST', query: '?action=auto' })).body.result.placed, 0);
 });

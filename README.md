@@ -49,6 +49,8 @@ La organización automática solo sienta a quienes no tienen mesa y mantiene jun
 familias (una invitación = una mesa, salvo que no quepan). Cada invitación va a la mesa de su sección
 (categoría y lado predominantes); si esa se llena, pasa a la sección más parecida y avisa cuando
 queda fuera de la suya. Iglesia, participantes y amigos no ocupan mesas de familia mientras haya otro lugar.
+La lista de "Sin mesa" separa a los invitados por categoría, en el mismo orden que las mesas (familia cercana, familiares,
+participantes, iglesia, amigos; cada grupo bajo una sola sección), con botones para ver solo una categoría.
 Se mueve a un invitado tocándolo y luego tocando la mesa, o arrastrándolo; por defecto se mueve con su grupo.
 
 ## Desarrollo
