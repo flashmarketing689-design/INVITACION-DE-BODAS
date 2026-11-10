@@ -10,6 +10,7 @@ Frontend estático + funciones serverless en `api/` (Vercel) + Supabase como bas
 | `admin.html` | Resumen de respuestas y capacidad |
 | `invitados.html` | Alta, edición, enlaces y envío por WhatsApp |
 | `invitaciones.html` | Agrupar parejas/familias, regenerar enlaces, pases QR |
+| `cortejo.html` | Cortejo y participantes: quién tiene cada papel el día de la boda (padres que participan, padrinos, chambelanes, damas de honor, niña del cartel, anillos…) |
 | `mesas.html` | 12 mesas de 10 lugares: organización automática y movimiento con clic o arrastrando |
 | `recepcion.html` | Escaneo de QR y registro de entradas |
 
@@ -23,11 +24,11 @@ Frontend estático + funciones serverless en `api/` (Vercel) + Supabase como bas
 | `ADMIN_SESSION_SECRET` | recomendada | ≥ 32 caracteres; si falta se usa la service key |
 
 ## Base de datos
-Ejecuta en el SQL Editor de Supabase, en orden, los archivos de `migrations/` (001 → 013).
+Ejecuta en el SQL Editor de Supabase, en orden, los archivos de `migrations/` (001 → 014).
 La 010 corrige la separación de grupos con personas eliminadas, protege las
 confirmaciones de quienes ya entraron y sincroniza el teléfono. La 011 crea el módulo de mesas y la 012 añade las secciones de las mesas y la marca de familia cercana
-(ejecútala antes de desplegar esa versión) y la 013 añade el parentesco de los familiares
-(ejecútala antes de desplegar esa versión).
+(ejecútala antes de desplegar esa versión) la 013 añade el parentesco de los familiares y la 014 el cortejo
+(ejecuta cada una antes de desplegar la versión que la usa).
 
 ## Mesas
 Son 12 mesas de 10 lugares (el límite lo garantiza la base de datos). Cada mesa tiene una sección:
@@ -56,6 +57,18 @@ queda fuera de la suya. Iglesia, participantes y amigos no ocupan mesas de famil
 La lista de "Sin mesa" separa a los invitados por categoría, en el mismo orden que las mesas (familia cercana, familiares,
 participantes, iglesia, amigos; cada grupo bajo una sola sección), con botones para ver solo una categoría.
 Se mueve a un invitado tocándolo y luego tocando la mesa, o arrastrándolo; por defecto se mueve con su grupo.
+
+## Cortejo y participantes
+La página **Cortejo** organiza los papeles del día de la boda. Cada papel tiene su tarjeta con las personas que
+lo llevan; una misma persona puede tener **varios papeles** (por ejemplo, la niña que anuncia a la novia con el
+cartel y también lleva los anillos). Vienen seis papeles: Padres que participan, Padrinos, Chambelanes, Damas de
+honor, Niña del cartel y Portador(a) de los anillos; se pueden crear, renombrar, reordenar y eliminar (hasta 40).
+
+- **Por papel** y **por persona**: la segunda vista muestra de un vistazo todo lo que hace cada quien.
+- Avisa de los *participantes sin papel* (categoría "Participantes" sin ningún papel) y de quienes tienen un papel
+  pero respondieron que **no asistirán**.
+- Los papeles se ven también en las tarjetas de **Invitados** y junto al nombre en **Mesas**. Tener un papel no
+  cambia la categoría ni la mesa de la persona. Se puede imprimir.
 
 ## Desarrollo
 ```bash

@@ -24,7 +24,7 @@ const {
   getLocalInvitations, saveLocalInvitations, getLocalCheckins,
 } = require('../lib/invitations');
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
+const { DATA_DIR } = require('../lib/dataDir');
 const LOCAL_FILE = path.join(DATA_DIR, 'rsvp_respuestas_local.json');
 const RSVP_CAPACITY = 150;
 

@@ -722,11 +722,22 @@ function sessionExpired(){
   loginError.classList.add('show');
 }
 
+// Papeles del cortejo (opcional: si no están disponibles, las tarjetas se ven igual que antes).
+let roleNames = new Map();
+async function loadRoleNames(){
+  try {
+    const overview = await api('/api/cortejo');
+    const names = new Map(overview.roles.map(role=>[role.id, role.name]));
+    roleNames = new Map(overview.people.filter(p=>p.role_ids.length).map(p=>[p.id, p.role_ids.map(id=>names.get(id)).filter(Boolean)]));
+  } catch(e) { roleNames = new Map(); }
+}
+
 async function loadGuests(){
   try {
     guests = await api('/api/guests');
     if (!Array.isArray(guests)) guests = [];
     guestsLoadError = null;
+    await loadRoleNames();
   } catch(e) {
     if (e.code === 401) return; // sessionExpired() ya mostró el inicio de sesión
     guests = [];
@@ -1149,6 +1160,7 @@ function createCard(g, cat){
         <div class="card-name">${esc(g.nombre)}</div>
         <div class="card-badges">
           <span class="cat-badge" style="background:${cat.bg};color:${cat.color}">${esc(cat.label)}</span>
+          ${(roleNames.get(g.id) || []).map(name=>`<span class="cat-badge" style="background:#EEEAF5;color:#6B5B95">${esc(name)}</span>`).join('')}
           ${g.parentesco ? `<span class="cat-badge" style="background:#F6EFDC;color:#7A5F10">${esc(kinLabel(g.parentesco, g.pertenece))}</span>` : g.cercana ? '<span class="cat-badge" style="background:#F6EFDC;color:#7A5F10">Familia cercana</span>' : ''}
           <span class="owner-badge">
             <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>

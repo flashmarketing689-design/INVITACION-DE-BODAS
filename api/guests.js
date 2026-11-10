@@ -28,7 +28,7 @@ const { getLocalInvitations, saveLocalInvitations, ensureLocalSingletons, isMiss
 const { guestInvitationDetails } = require('../lib/guestInvitationDetails');
 
 /* ─── Store local (fallback dev) ─── */
-const DATA_DIR = path.join(__dirname, '..', 'data');
+const { DATA_DIR } = require('../lib/dataDir');
 const GUESTS_FILE = path.join(DATA_DIR, 'guests.json');
 
 function ensureDataDir() {

@@ -61,7 +61,7 @@ module.exports = async function handler(req, res) {
     const path = require('path');
     const read = (f, fallback = []) => {
       try {
-        return JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'data', f), 'utf8')) || fallback;
+        return JSON.parse(fs.readFileSync(path.join(require('../../lib/dataDir').DATA_DIR, f), 'utf8')) || fallback;
       } catch { return fallback; }
     };
     const guests = read('guests.json').filter((g) => !g.archived_at);
