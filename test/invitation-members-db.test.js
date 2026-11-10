@@ -19,7 +19,7 @@ before(async () => {
 
 beforeEach(async () => {
   await db.exec(`reset role;
-    truncate public.guests, public.invitations, public.invitation_members,
+    truncate public.table_assignments, public.guests, public.invitations, public.invitation_members,
       public.rsvp_respuestas, public.rsvp_historial, public.invitation_checkins restart identity;
     set role service_role;`);
 });

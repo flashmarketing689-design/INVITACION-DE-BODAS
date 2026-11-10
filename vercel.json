@@ -12,7 +12,7 @@
       ]
     },
     {
-      "source": "/(index|admin|invitados|invitaciones|recepcion).html",
+      "source": "/(index|admin|invitados|invitaciones|mesas|recepcion).html",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
       ]

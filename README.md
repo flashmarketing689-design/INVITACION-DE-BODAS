@@ -10,6 +10,7 @@ Frontend estático + funciones serverless en `api/` (Vercel) + Supabase como bas
 | `admin.html` | Resumen de respuestas y capacidad |
 | `invitados.html` | Alta, edición, enlaces y envío por WhatsApp |
 | `invitaciones.html` | Agrupar parejas/familias, regenerar enlaces, pases QR |
+| `mesas.html` | 12 mesas de 10 lugares: organización automática y movimiento con clic o arrastrando |
 | `recepcion.html` | Escaneo de QR y registro de entradas |
 
 ## Variables de entorno (Vercel)
@@ -22,9 +23,16 @@ Frontend estático + funciones serverless en `api/` (Vercel) + Supabase como bas
 | `ADMIN_SESSION_SECRET` | recomendada | ≥ 32 caracteres; si falta se usa la service key |
 
 ## Base de datos
-Ejecuta en el SQL Editor de Supabase, en orden, los archivos de `migrations/` (001 → 010).
+Ejecuta en el SQL Editor de Supabase, en orden, los archivos de `migrations/` (001 → 011).
 La 010 corrige la separación de grupos con personas eliminadas, protege las
-confirmaciones de quienes ya entraron y sincroniza el teléfono.
+confirmaciones de quienes ya entraron y sincroniza el teléfono. La 011 crea el módulo de mesas.
+
+## Mesas
+Son 12 mesas de 10 lugares (el límite lo garantiza la base de datos). Las dos primeras son
+"principales" —reservadas para familiares— y se puede cambiar cuáles con el lápiz de cada mesa.
+La organización automática solo sienta a quienes no tienen mesa, mantiene juntas a las parejas y
+familias (una invitación = una mesa, salvo que no quepan) y lleva a los familiares a las mesas principales.
+Se mueve a un invitado tocándolo y luego tocando la mesa, o arrastrándolo; por defecto se mueve con su grupo.
 
 ## Desarrollo
 ```bash
