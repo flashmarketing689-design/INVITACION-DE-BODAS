@@ -221,7 +221,7 @@ function chip(person, compact = false) {
   if (person.id === selectedId) classes.push('selected'); else if (related) classes.push('related');
   if (person.estado_rsvp === 'no_asiste') classes.push('declined');
   if (query) classes.push(norm(`${person.nombre} ${person.invitation_name}`).includes(query) ? 'match' : 'dim');
-  const meta = [grouped ? person.invitation_name : '', person.cercana ? 'Familia cercana' : person.categoria === 'familiares' ? 'Familiar' : '',
+  const meta = [grouped ? person.invitation_name : '', person.parentesco_label || (person.cercana ? 'Familia cercana' : person.categoria === 'familiares' ? 'Familiar' : ''),
     person.estado_rsvp === 'no_asiste' ? 'No asistirá' : ''].filter(Boolean).map(esc).join(' · ');
   const state_ = person.estado_rsvp || 'pendiente';
   const label = state_ === 'confirmado' ? 'confirmó' : state_ === 'no_asiste' ? 'no asistirá' : 'sin responder';
@@ -256,6 +256,12 @@ function render() {
   const pool = waiting.filter(activeFilter[2]);
   const review = state.people.filter((p) => !p.seatable);
   // Por categoría, en el mismo orden que las mesas; dentro de cada una, por grupo y nombre.
+  // Dentro de una sección, los grupos con madre o padre van primero, luego los de hermanos y después el resto.
+  const groupRanks = new Map();
+  for (const person of state.people) groupRanks.set(person.invitation_id, Math.min(groupRanks.get(person.invitation_id) ?? 2, person.parentesco_order ?? 2));
+  const byKinship = (a, b) => (groupRanks.get(a.invitation_id) - groupRanks.get(b.invitation_id))
+    || (a.invitation_id === b.invitation_id ? (a.parentesco_order ?? 2) - (b.parentesco_order ?? 2) : 0)
+    || byGroupThenName(a, b);
   const sections = [...pool.reduce((map, person) => {
     if (!map.has(person.section_key)) map.set(person.section_key, { label: person.section_label, category: person.section_category, order: person.section_order, people: [] });
     map.get(person.section_key).people.push(person);
@@ -263,9 +269,9 @@ function render() {
   }, new Map()).values()].sort((a, b) => a.order - b.order);
   $('pool-sub').textContent = `${pool.length} persona${pool.length === 1 ? '' : 's'} esperando mesa`;
   $('pool-list').innerHTML = (sections.length ? sections.map((section) =>
-    `<h4 class="sec sec-${esc(section.category)}"><span>${esc(section.label)}</span><b>${section.people.length}</b></h4>${section.people.sort(byGroupThenName).map(chip).join('')}`).join('')
+    `<h4 class="sec sec-${esc(section.category)}"><span>${esc(section.label)}</span><b>${section.people.length}</b></h4>${section.people.sort(byKinship).map((p) => chip(p)).join('')}`).join('')
     : `<p class="empty-seat">${query ? 'Nadie sin mesa con ese nombre.' : poolFilter !== 'all' ? 'No hay nadie de esta categoría sin mesa.' : 'Todos tienen mesa. 🎉'}</p>`)
-    + (review.length ? `<h4>Requieren revisión (${review.length})</h4>${review.map(chip).join('')}` : '');
+    + (review.length ? `<h4>Requieren revisión (${review.length})</h4>${review.map((p) => chip(p)).join('')}` : '');
 
   const holding = selectedId != null;
   $('mesas').innerHTML = state.tables.map((table) => {

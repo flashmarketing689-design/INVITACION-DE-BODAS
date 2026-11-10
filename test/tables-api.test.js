@@ -41,9 +41,9 @@ async function call(cookie, { method = 'GET', query = '', body } = {}) {
   await tablesHandler(createReq({ method, url: `/api/tables${query}`, body, headers: cookie ? { cookie } : {} }), res);
   return res;
 }
-async function addGuest(cookie, nombre, categoria = 'familiares', pertenece = 'novia', cercana = false) {
+async function addGuest(cookie, nombre, categoria = 'familiares', pertenece = 'novia', cercana = false, parentesco) {
   const res = createRes();
-  await guestsHandler(createReq({ method: 'POST', url: '/api/guests', body: { nombre, categoria, pertenece, cercana }, headers: { cookie } }), res);
+  await guestsHandler(createReq({ method: 'POST', url: '/api/guests', body: { nombre, categoria, pertenece, cercana, parentesco }, headers: { cookie } }), res);
   assert.equal(res.statusCode, 200);
   return res.body;
 }
@@ -229,4 +229,37 @@ test('quien se elimina de la lista libera su lugar en la mesa', async () => {
   const state = (await call(cookie)).body;
   assert.equal(state.tables[5].seated, 1);
   assert.equal(state.people.some((person) => person.id === a.id), false);
+});
+
+test('madre, padre y hermanos: se guardan, implican familia cercana y se sientan en su mesa', async () => {
+  reset();
+  const cookie = await login();
+  const madre = await addGuest(cookie, 'Marta Novia', 'familiares', 'novia', false, 'madre');
+  assert.deepEqual([madre.parentesco, madre.cercana], ['madre', true], 'el parentesco implica familia cercana');
+  const padre = await addGuest(cookie, 'Pedro Novio', 'familiares', 'novio', false, 'padre');
+  const hermana = await addGuest(cookie, 'Hilda Novia', 'familiares', 'novia', false, 'hermano');
+  const invalido = await addGuest(cookie, 'Falso Parentesco', 'familiares', 'novia', false, 'tio');
+  assert.deepEqual([invalido.parentesco, invalido.cercana], [null, false]);
+  const amigo = await addGuest(cookie, 'Amigo Falso', 'amigos', 'novia', false, 'madre');
+  assert.deepEqual([amigo.parentesco, amigo.cercana], [null, false], 'solo los familiares tienen parentesco');
+  await group(cookie, [madre.id, hermana.id], 'Familia de la novia');
+  const res = await call(cookie, { method: 'POST', query: '?action=auto' });
+  assert.equal(res.statusCode, 200);
+  const person = (guest) => res.body.people.find((p) => p.id === guest.id);
+  assert.equal(person(madre).parentesco_label, 'Madre de la novia');
+  assert.equal(person(padre).parentesco_label, 'Padre del novio');
+  assert.equal(person(hermana).parentesco_label, 'Hermano(a) de la novia');
+  assert.deepEqual([person(madre).table_id, person(hermana).table_id], [1, 1], 'madre y hermana de la novia: Mesa 1');
+  assert.equal(person(padre).table_id, 2, 'padre del novio: Mesa 2');
+  assert.equal(person(invalido).section_label, 'Familiares de la novia');
+
+  // Cambiar el parentesco y quitarlo
+  const put = (body) => { const r = createRes(); return guestsHandler(createReq({ method: 'PUT', url: '/api/guests', headers: { cookie }, body: { id: madre.id, nombre: 'Marta Novia', pertenece: 'novia', cantidad_personas: 1, ...body } }), r).then(() => r); };
+  let r = await put({ categoria: 'familiares', parentesco: 'padre' });
+  assert.equal(r.body.parentesco, 'padre');
+  r = await put({ categoria: 'familiares', parentesco: '', cercana: true });
+  assert.deepEqual([r.body.parentesco, r.body.cercana], [null, true], 'sin parentesco puede seguir siendo familia cercana');
+  r = await put({ categoria: 'familiares', parentesco: 'madre' });
+  r = await put({ categoria: 'amigos', parentesco: 'madre', cercana: true });
+  assert.deepEqual([r.body.parentesco, r.body.cercana], [null, false], 'al dejar de ser familiar se limpia el parentesco');
 });

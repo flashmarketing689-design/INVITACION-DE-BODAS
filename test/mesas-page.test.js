@@ -20,3 +20,10 @@ test('el módulo aparece en el menú, en el servidor de desarrollo y en las cabe
   const config = JSON.parse(fs.readFileSync(path.join(root, 'vercel.json'), 'utf8'));
   assert.ok(config.headers.some((rule) => /mesas/.test(rule.source)));
 });
+
+test('chip() nunca recibe el índice de .map() como modo compacto', () => {
+  // .map(chip) pasa (elemento, índice); el índice 1, 2… activaba el modo compacto y
+  // ocultaba el detalle (grupo y parentesco) de todos los invitados menos el primero.
+  assert.doesNotMatch(html, /\.map\(chip\)/);
+  assert.match(html, /function chip\(person, compact = false\)/);
+});

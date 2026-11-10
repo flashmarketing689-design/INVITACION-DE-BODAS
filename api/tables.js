@@ -43,11 +43,12 @@ function writeLocalState(state) {
 
 const localStore = {
   async load() { return readLocalState(); },
-  async closeFamilyIds() {
+  async familyInfo() {
     try {
       const guests = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'guests.json'), 'utf8'));
-      return new Set(guests.filter((guest) => guest.cercana && !guest.archived_at).map((guest) => Number(guest.id)));
-    } catch { return new Set(); }
+      return new Map(guests.filter((guest) => (guest.cercana || guest.parentesco) && !guest.archived_at)
+        .map((guest) => [Number(guest.id), { cercana: Boolean(guest.cercana), parentesco: guest.parentesco || null }]));
+    } catch { return new Map(); }
   },
   async move(state, guestIds, tableId) { writeLocalState(T.applyMove(state, guestIds, tableId)); },
   async applyPlan(state, plan) { writeLocalState(T.applyPlan(state, plan)); },
@@ -60,6 +61,9 @@ function translateDbError(error) {
   const message = String(error?.message || '');
   if (['42P01', '42883', 'PGRST202', 'PGRST205'].includes(error?.code)) {
     return new T.TableError('MIGRATION', 'Primero ejecuta la migración 011_wedding_tables.sql en Supabase para activar las mesas.');
+  }
+  if (/parentesco/.test(message) && (error?.code === '42703' || error?.code === 'PGRST204')) {
+    return new T.TableError('MIGRATION', 'Primero ejecuta la migración 013_family_kinship.sql en Supabase para activar el parentesco de los familiares.');
   }
   if (error?.code === '42703' || (error?.code === 'PGRST204' && /category|side|cercana/.test(message))) {
     return new T.TableError('MIGRATION', 'Primero ejecuta la migración 012_table_sections.sql en Supabase para activar las secciones de las mesas.');
@@ -89,9 +93,10 @@ const supabaseStore = {
     const assignments = await dbCall(supabase.from('table_assignments').select('guest_id, table_id').limit(5000));
     return { tables: tables || [], assignments: assignments || [] };
   },
-  async closeFamilyIds() {
-    const rows = await dbCall(supabase.from('guests').select('id').eq('cercana', true).is('archived_at', null).limit(5000));
-    return new Set((rows || []).map((row) => Number(row.id)));
+  async familyInfo() {
+    // Tener parentesco implica ser familia cercana, así que basta con filtrar por cercana.
+    const rows = await dbCall(supabase.from('guests').select('id, cercana, parentesco').eq('cercana', true).is('archived_at', null).limit(5000));
+    return new Map((rows || []).map((row) => [Number(row.id), { cercana: true, parentesco: row.parentesco || null }]));
   },
   async move(_state, guestIds, tableId) {
     await dbCall(supabase.rpc('move_guests_to_table', { p_guest_ids: guestIds, p_table_id: tableId }));
@@ -121,7 +126,7 @@ async function loadAll() {
     const active = invitations.flatMap((invitation) => (invitation.members || []).map((member) => member.guest_id));
     state = T.pruneAssignments(state, active);
   }
-  const people = T.buildPeople(invitations, state.assignments, await adapter.closeFamilyIds());
+  const people = T.buildPeople(invitations, state.assignments, await adapter.familyInfo());
   return { state, people };
 }
 

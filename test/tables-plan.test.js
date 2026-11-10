@@ -232,3 +232,34 @@ test('cada invitación se muestra en la sección de su grupo, en el mismo orden 
     'Participantes de la boda', 'Iglesia', 'Amigos de la novia', 'Amigos del novio']);
   assert.deepEqual(tables.groupSection({ category: 'familia_cercana', side: 'mixed' }).label, 'Familia cercana (ambos lados)');
 });
+
+test('el parentesco de los familiares: etiqueta por lado, implica familia cercana y se ordena', () => {
+  const member = (guest_id, nombre, categoria, pertenece) => ({ guest_id, nombre, categoria, pertenece, estado_rsvp: null, cantidad_personas: 1 });
+  const invitations = [
+    { id: 'tios', display_name: 'Tios', group_type: 'couple', members: [member(1, 'Tio Uno', 'familiares', 'novia'), member(2, 'Tia Dos', 'familiares', 'novia')] },
+    { id: 'hermanos', display_name: 'Hermanos', group_type: 'couple', members: [member(3, 'Hermano Uno', 'familiares', 'novia'), member(4, 'Hermana Dos', 'familiares', 'novia')] },
+    { id: 'padres-novio', display_name: 'Padres del novio', group_type: 'couple', members: [member(5, 'Padre Novio', 'familiares', 'novio'), member(6, 'Madre Novio', 'familiares', 'novio')] },
+    { id: 'amigo', display_name: 'Amigo', group_type: 'individual', members: [member(7, 'Amigo Uno', 'amigos', 'novia')] },
+  ];
+  const info = new Map([[3, { parentesco: 'hermano' }], [4, { parentesco: 'hermano' }], [5, { parentesco: 'padre' }], [6, { parentesco: 'madre' }], [7, { parentesco: 'madre' }]]);
+  const people = tables.buildPeople(invitations, [], info);
+  const byId = (id) => people.find((person) => person.id === id);
+  assert.equal(byId(5).parentesco_label, 'Padre del novio');
+  assert.equal(byId(6).parentesco_label, 'Madre del novio');
+  assert.equal(byId(3).parentesco_label, 'Hermano(a) de la novia');
+  assert.equal(byId(3).cercana, true, 'tener parentesco implica familia cercana');
+  assert.equal(byId(1).cercana, false);
+  assert.equal(byId(1).parentesco_label, null);
+  assert.equal(byId(7).parentesco, null, 'solo los familiares tienen parentesco');
+  assert.deepEqual([byId(6).parentesco_order, byId(3).parentesco_order, byId(1).parentesco_order], [0, 1, 2]);
+  assert.equal(byId(3).section_key, 'familia_cercana|novia');
+  assert.equal(byId(5).section_key, 'familia_cercana|novio');
+  assert.equal(byId(1).section_key, 'familiares|novia');
+  // Los hermanos de la novia van a la Mesa 1 y los padres del novio a la Mesa 2.
+  const plan = tables.planAutoAssignment(people, tables.defaultTables());
+  const tableOf = (id) => plan.assignments.find((row) => row.guest_id === id).table_id;
+  assert.deepEqual([tableOf(3), tableOf(4), tableOf(5), tableOf(6), tableOf(1)], [1, 1, 2, 2, 3]);
+  assert.equal(tables.kinshipLabel('tio', 'novia'), null);
+  // La forma anterior (un conjunto de ids de familia cercana) sigue funcionando.
+  assert.equal(tables.buildPeople(invitations, [], new Set([1]))[0].cercana, true);
+});
