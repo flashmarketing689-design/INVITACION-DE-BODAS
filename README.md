@@ -70,6 +70,12 @@ honor, Niña del cartel y Portador(a) de los anillos; se pueden crear, renombrar
 - Los papeles se ven también en las tarjetas de **Invitados** y junto al nombre en **Mesas**. Tener un papel no
   cambia la categoría ni la mesa de la persona. Se puede imprimir.
 
+## Sistema visual del panel
+Las seis pantallas comparten un mismo sistema, definido al final de `admin-shell.css`: una sola tipografía (Poppins),
+base de 20 px en escritorio y 19 px en móvil, texto mínimo de `.75rem` (15 px), controles de 44 px de alto, una paleta
+y una cabecera comunes. Todo el panel usa `rem`, así que el tamaño general se ajusta cambiando `html { font-size }`.
+Una prueba impide volver a usar tamaños por debajo del mínimo.
+
 ## Desarrollo
 ```bash
 npm ci

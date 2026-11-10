@@ -65,7 +65,7 @@ body.admin-shell-enabled {
   display: block;
   margin-top: .18rem;
   color: var(--admin-nav-muted);
-  font-size: .62rem;
+  font-size: .75rem;
   line-height: 1.35;
 }
 
@@ -94,14 +94,14 @@ body.admin-shell-enabled {
 .admin-event-card strong {
   display: block;
   color: #405e43;
-  font-size: .72rem;
+  font-size: .75rem;
   font-weight: 600;
 }
 .admin-event-card span {
   display: block;
   margin-top: .22rem;
   color: var(--admin-nav-muted);
-  font-size: .61rem;
+  font-size: .75rem;
 }
 
 .admin-sidebar-scroll {
@@ -115,9 +115,9 @@ body.admin-shell-enabled {
 .admin-nav-label {
   margin: .8rem .65rem .45rem;
   color: #89928b;
-  font-size: .57rem;
+  font-size: .75rem;
   font-weight: 600;
-  letter-spacing: .13em;
+  letter-spacing:.06em;
   text-transform: uppercase;
 }
 .admin-nav-item { margin: .18rem 0; }
@@ -130,7 +130,7 @@ body.admin-shell-enabled {
   padding: .62rem .72rem;
   color: #59665b;
   border-radius: 12px;
-  font-size: .72rem;
+  font-size: .75rem;
   font-weight: 500;
   line-height: 1.3;
   text-decoration: none;
@@ -189,7 +189,7 @@ body.admin-shell-enabled {
   padding: .43rem .45rem;
   color: #778078;
   border-radius: 8px;
-  font-size: .63rem;
+  font-size: .75rem;
   line-height: 1.35;
   text-decoration: none;
 }
@@ -214,7 +214,7 @@ body.admin-shell-enabled {
   padding: .55rem .55rem 0;
   color: var(--admin-nav-muted);
   border-top: 1px solid var(--admin-nav-line);
-  font-size: .62rem;
+  font-size: .75rem;
 }
 .admin-sidebar-status {
   width: 8px;
@@ -304,11 +304,124 @@ body.admin-shell-enabled [id="busqueda-nombre"] {
   body.admin-shell-enabled > header.topbar .topbar-brand { flex: 1 1 180px; }
   body.admin-shell-enabled > header.topbar .topbar-nav { gap: .35rem; }
   body.admin-shell-enabled > header.topbar .topbar-nav .btn-sm { padding: .5rem .6rem; }
-  body.admin-shell-enabled[data-admin-page="recepcion"] > header.top .admin-shell-toggle { color: #fff; background: #ffffff12; border-color: #ffffff3d; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .admin-sidebar,
   .admin-shell-overlay,
   .admin-nav-link { transition: none; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Sistema visual del panel (compartido por las seis pantallas)
+   - Una sola escala: todo el panel usa rem, así que la base define el tamaño.
+   - Texto mínimo de .75rem (15 px en escritorio); controles de 44 px de alto.
+   - Mismos colores, cabecera, títulos y tarjetas en todas las pantallas.
+   ══════════════════════════════════════════════════════════════════════ */
+html { font-size: 125%; }
+@media (max-width: 700px) { html { font-size: 118.75%; } }
+
+:root {
+  --green: #4f7352; --green-dark: #2f5233; --green-light: #e8f0e7; --green-pale: #e8f0e7; --green-soft: #e8f0e7;
+  --gold: #a8842f; --gold-light: #f6efdc; --red: #b3443e; --red-light: #fbeceb; --red-soft: #fbeceb;
+  --ivory: #f7f4ee; --paper: #f7f4ee; --white: #fff;
+  --ink: #241a14; --text: #241a14; --soft: #5a4e44; --text-soft: #5a4e44; --muted: #5a4e44;
+  --line: #e0d9cc; --radius: 16px; --shadow: 0 2px 10px rgba(36, 26, 20, .06);
+}
+body { background: var(--ivory); color: var(--ink); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+
+/* Cabecera: igual en todas las pantallas */
+body > header.top, body > header.topbar {
+  background: #fff; color: var(--ink); border-bottom: 1px solid var(--line); box-shadow: none;
+  min-height: 76px; padding-top: .7rem; padding-bottom: .7rem;
+}
+body > header.top h1, body > header.topbar h1 { font-size: 1.5rem; font-weight: 600; line-height: 1.15; color: var(--ink); }
+body > header.top small, body > header.topbar small, body > header.topbar p { color: var(--soft); opacity: 1; font-size: .75rem; }
+
+/* Títulos: una sola escala */
+main h2, .wrap h2, .intro h2 { font-size: 1.7rem; font-weight: 600; line-height: 1.2; }
+main h3, .panel h3, .pool h3, .card h2 { font-size: 1.35rem; font-weight: 600; line-height: 1.25; }
+
+/* Controles: altos, legibles y con foco visible */
+button, .btn, .btn-sm, .button, select, textarea,
+input[type=text], input[type=search], input[type=password], input[type=tel], input[type=number] { min-height: 44px; }
+button, .btn, .btn-sm, .button { font-weight: 500; letter-spacing: 0; text-transform: none; }
+:where(button, a, select, input, textarea):focus-visible { outline: 3px solid var(--green); outline-offset: 2px; }
+
+/* Controles que las pantallas definían más bajos */
+.btn.small, select.assign, .pool-filters button, .move-here { min-height: 44px; }
+.icon-btn, .x-btn { min-width: 44px; min-height: 44px; width: auto; height: auto; }
+.guest, .guest.compact { min-height: 44px; align-content: center; }
+
+/* Una sola tipografía: títulos y cifras en Poppins seminegrita (antes una serif fina) */
+h1, h2, h3, h4, .topbar-title, .modal-title, .owner-name, .stat-value, .summary-card strong, .cap-pct,
+.import-summary-value { font-family: 'Poppins', system-ui, sans-serif; font-weight: 600; letter-spacing: -.01em; }
+body > header .topbar-title { font-size: 1.3rem; line-height: 1.2; color: var(--ink); }
+body > header.top h1, body > header.topbar h1 { font-size: 1.3rem; }
+body > header .topbar-subtitle { font-size: .75rem; color: var(--soft); }
+main h2, .wrap h2, .intro h2 { font-size: 1.5rem; }
+main h3, .panel h3, .pool h3, .card h2, .r-head h3 { font-size: 1.15rem; }
+.t-head h4, .group h4, .empty-section h4 { font-size: 1.1rem; }
+
+/* Mismo ancho y márgenes de contenido en todas las pantallas */
+@media screen {
+  .main, .wrap { max-width: 1560px; margin: 0 auto; padding: 1.4rem 1.6rem 4rem; }
+  .intro { max-width: 62rem; margin-left: 0; margin-right: 0; }
+}
+@media screen and (max-width: 700px) { .main, .wrap { padding: 1rem .9rem 4rem; } }
+
+/* Tarjetas de cifras: número grande, etiqueta alineada */
+.stat-card, .summary-card { border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1rem 1.1rem; }
+.stat-card:hover { transform: none; }
+.stat-value, .summary-card strong { font-size: 2rem; line-height: 1.15; }
+.stat-label { font-weight: 500; line-height: 1.3; min-height: 2.6em; margin-bottom: .2rem; }
+.summary-card span, .stat-sub { font-size: .8rem; line-height: 1.35; }
+.stats, .summary { gap: .8rem; }
+
+/* Tarjetas y paneles: mismo borde, radio y sombra */
+.panel, .card, .table-card, .toolbar, .role-card, .table-card.main, .guest-card, .group, .table-wrap, .options {
+  border-color: var(--line); border-radius: var(--radius); box-shadow: var(--shadow);
+}
+
+/* Tabla del resumen: sin cortes ni nombres partidos */
+.table-card tbody td, .table-card thead th { padding: .8rem .9rem; }
+.table-card tbody td { font-size: .85rem; vertical-align: middle; }
+.td-name, .td-phone { white-space: nowrap; }
+.td-name { font-size: .9rem; }
+.row-actions { flex-wrap: nowrap; }
+.rename-btn, .del-btn { white-space: nowrap; padding: .3rem .8rem; }
+
+/* Buscadores con ancho suficiente para leer el texto de ayuda */
+.search-wrap { min-width: 17rem; max-width: none; }
+
+/* Recepción: los botones de la cabecera ya no son blancos sobre blanco */
+body > header.top button:not(.btn):not(.admin-shell-toggle) { color: var(--ink); border: 1px solid var(--line); background: #fff; font-size: .8rem; padding: .5rem 1rem; }
+#operator-label { color: var(--soft); font-size: .8rem !important; }
+
+/* Filtros con nombre: se entiende qué filtra cada fila */
+.filter-group { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; flex-basis: 100%; }
+.filter-label { font-size: .8rem; font-weight: 600; color: var(--ink); min-width: 5.5rem; }
+.toolbar .search-wrap { flex-basis: 100%; }
+
+/* Tabla del resumen: cabe sin desplazarse en un portátil */
+.table-card table { min-width: 0; }
+.table-card th:first-child, .table-card td:first-child { display: none; }
+.table-card tbody td, .table-card thead th { padding: .7rem .7rem; }
+.table-card th:nth-child(2), .table-card td:nth-child(2) { padding-left: 1.1rem; }
+.row-actions { flex-wrap: wrap; gap: .35rem; }
+.rename-btn, .del-btn { font-size: .75rem; min-height: 40px; }
+.table-card th:nth-child(4), .table-card td:nth-child(4) { display: none; } /* "Personas": siempre 1 por registro */
+.td-date { white-space: normal; }
+.table-card td:last-child, .table-card th:last-child { padding-right: 1.1rem; width: 11rem; }
+.row-actions { flex-direction: column; align-items: stretch; }
+.row-actions > * { justify-content: center; text-align: center; }
+
+/* Cortejo: nombres sin partir en el aviso de pendientes */
+.pending ul { grid-template-columns: repeat(auto-fill, minmax(min(21rem, 100%), 1fr)); }
+.pending li span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Botón del menú: igual en todas las cabeceras (Recepción lo pintaba de blanco) */
+body > header .admin-shell-toggle {
+  width: 44px; height: 44px; flex: 0 0 44px; padding: 0;
+  color: var(--green-dark); background: var(--green-light); border: 1px solid var(--line); border-radius: 12px;
 }

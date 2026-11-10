@@ -9,7 +9,7 @@
   <title>Panel de Administración — Boda Starlin & Reneisy</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
 
 <style>
 :root {
@@ -72,7 +72,7 @@ body {
 }
 .login-logo svg { width: 26px; height: 26px; fill: var(--green); }
 .login-box h1 {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: 'Poppins',system-ui,sans-serif;
   font-size: 1.7rem; font-weight: 400;
   margin-bottom: .3rem;
 }
@@ -93,7 +93,7 @@ body {
   background: linear-gradient(135deg, var(--green), #3D5E3F);
   color: var(--white);
   font-family: 'Poppins', sans-serif;
-  font-size: .78rem; font-weight: 500; letter-spacing: .14em; text-transform: uppercase;
+  font-size: .78rem; font-weight: 500; letter-spacing:.06em; text-transform: uppercase;
   border-radius: 12px; border: none; cursor: pointer;
   box-shadow: 0 6px 20px rgba(90,122,92,.3);
   transition: transform .25s, box-shadow .25s;
@@ -101,7 +101,7 @@ body {
 .login-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(90,122,92,.4); }
 .login-btn:disabled { opacity: .6; transform: none; }
 .login-error {
-  font-size: .74rem; color: var(--red);
+  font-size: .75rem; color: var(--red);
   margin-top: .8rem; display: none;
 }
 .login-error.show { display: block; }
@@ -126,15 +126,15 @@ body {
 }
 .topbar-logo svg { width: 18px; height: 18px; fill: var(--green); }
 .topbar-title {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: 'Poppins',system-ui,sans-serif;
   font-size: 1.2rem; font-weight: 400;
 }
-.topbar-subtitle { font-size: .65rem; color: var(--text-soft); margin-top: .1rem; }
+.topbar-subtitle { font-size: .75rem; color: var(--text-soft); margin-top: .1rem; }
 .topbar-actions { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; }
 .btn-sm {
   display: inline-flex; align-items: center; gap: .4rem;
   padding: .5rem 1.1rem;
-  border-radius: 50px; font-size: .7rem; font-weight: 500;
+  border-radius: 50px; font-size: .75rem; font-weight: 500;
   letter-spacing: .08em; text-transform: uppercase;
   cursor: pointer; border: none; transition: transform .2s, box-shadow .2s;
   font-family: 'Poppins', sans-serif;
@@ -171,11 +171,11 @@ body {
 }
 .stat-card:hover { transform: translateY(-3px); }
 .stat-label {
-  font-size: .6rem; letter-spacing: .22em; text-transform: uppercase;
+  font-size: .75rem; letter-spacing:.06em; text-transform: uppercase;
   color: var(--text-soft); margin-bottom: .5rem;
 }
 .stat-value {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: 'Poppins',system-ui,sans-serif;
   font-size: 2.4rem; font-weight: 600;
   line-height: 1;
 }
@@ -184,7 +184,7 @@ body {
 .stat-card.red    .stat-value { color: var(--red); }
 .stat-card.dark   .stat-value { color: var(--text); }
 .stat-card.purple .stat-value { color: #7A6AAD; }
-.stat-sub { font-size: .7rem; color: var(--text-soft); margin-top: .3rem; }
+.stat-sub { font-size: .75rem; color: var(--text-soft); margin-top: .3rem; }
 
 /* ─── CAPACITY BAR ─── */
 .capacity-bar-wrap {
@@ -195,8 +195,8 @@ body {
   margin-bottom: 2rem;
 }
 .cap-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: .8rem; }
-.cap-title { font-size: .72rem; font-weight: 500; color: var(--text); }
-.cap-pct { font-family: 'Cormorant Garamond', serif; font-size: 1.3rem; color: var(--green); font-weight: 600; }
+.cap-title { font-size: .75rem; font-weight: 500; color: var(--text); }
+.cap-pct { font-family: 'Poppins',system-ui,sans-serif; font-size: 1.3rem; color: var(--green); font-weight: 600; }
 .cap-bar {
   height: 8px; border-radius: 8px;
   background: var(--green-pale); overflow: hidden;
@@ -217,7 +217,7 @@ body {
   padding: .5rem 1.2rem;
   border-radius: 50px;
   font-family: 'Poppins', sans-serif;
-  font-size: .7rem; font-weight: 500; cursor: pointer;
+  font-size: .75rem; font-weight: 500; cursor: pointer;
   border: 1.5px solid rgba(90,122,92,.2);
   background: var(--white); color: var(--text-soft);
   transition: all .2s;
@@ -254,7 +254,7 @@ thead tr { border-bottom: 1px solid rgba(90,122,92,.12); }
 thead th {
   padding: 1rem 1.2rem;
   text-align: left;
-  font-size: .6rem; letter-spacing: .2em; text-transform: uppercase;
+  font-size: .75rem; letter-spacing:.06em; text-transform: uppercase;
   color: var(--text-soft); font-weight: 500; white-space: nowrap;
 }
 tbody tr {
@@ -266,13 +266,13 @@ tbody tr:hover { background: rgba(90,122,92,.04); }
 tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
 .td-name { font-weight: 500; color: var(--text); }
 .td-phone { color: var(--text-soft); font-size: .75rem; }
-.td-date { color: var(--text-soft); font-size: .72rem; white-space: nowrap; }
+.td-date { color: var(--text-soft); font-size: .75rem; white-space: nowrap; }
 
 /* ─── BADGE ─── */
 .badge {
   display: inline-flex; align-items: center; gap: .3rem;
   padding: .28rem .75rem; border-radius: 50px;
-  font-size: .65rem; font-weight: 500; white-space: nowrap;
+  font-size: .75rem; font-weight: 500; white-space: nowrap;
 }
 .badge-yes { background: rgba(90,122,92,.12); color: var(--green); }
 .badge-no  { background: rgba(192,80,74,.10); color: var(--red); }
@@ -289,7 +289,7 @@ tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
   color: var(--red);
   border: 1px solid rgba(192,80,74,.2);
   border-radius: 50px;
-  font-size: .65rem; font-weight: 500;
+  font-size: .75rem; font-weight: 500;
   cursor: pointer; font-family: 'Poppins', sans-serif;
   transition: background .2s, transform .2s;
   display: inline-flex; align-items: center; gap: .3rem;
@@ -299,7 +299,7 @@ tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
 .row-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; }
 .rename-btn {
   padding: .38rem .85rem; background: rgba(90,122,92,.08); color: var(--green);
-  border: 1px solid rgba(90,122,92,.2); border-radius: 50px; font-size: .65rem;
+  border: 1px solid rgba(90,122,92,.2); border-radius: 50px; font-size: .75rem;
   font-weight: 500; cursor: pointer; font-family: 'Poppins', sans-serif;
 }
 .rename-btn:hover { background: var(--green); color: var(--white); }
@@ -310,7 +310,7 @@ tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
 }
 .empty-state svg { width: 60px; height: 60px; fill: var(--green-pale); margin-bottom: 1rem; }
 .empty-state h3 {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: 'Poppins',system-ui,sans-serif;
   font-size: 1.5rem; color: var(--text);
 }
 .empty-state p { font-size: .8rem; color: var(--text-soft); margin-top: .4rem; }
@@ -344,7 +344,7 @@ tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
   box-shadow: var(--shadow-lg);
 }
 .dialog-box h3 {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: 'Poppins',system-ui,sans-serif;
   font-size: 1.5rem; margin-bottom: .6rem;
 }
 .dialog-box p { font-size: .8rem; color: var(--text-soft); line-height: 1.6; }
@@ -375,14 +375,14 @@ tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
 #rename-dialog.show { opacity: 1; pointer-events: all; }
 .rename-dialog .dialog-box { width: min(420px, 88vw); text-align: left; }
 .rename-dialog .dialog-box h3 { text-align: left; }
-.rename-dialog label { display: block; margin-top: 1.1rem; font-size: .72rem; font-weight: 500; }
+.rename-dialog label { display: block; margin-top: 1.1rem; font-size: .75rem; font-weight: 500; }
 .rename-dialog input {
   width: 100%; margin-top: .4rem; padding: .8rem .9rem; border-radius: 12px;
   border: 1.5px solid rgba(90,122,92,.22); font: inherit; font-size: .82rem; color: var(--text);
 }
 .rename-dialog input:focus { outline: 2px solid rgba(90,122,92,.22); border-color: var(--green); }
 .rename-help { margin-top: .5rem; }
-.rename-error { min-height: 1.2rem; margin-top: .45rem; color: var(--red); font-size: .72rem; }
+.rename-error { min-height: 1.2rem; margin-top: .45rem; color: var(--red); font-size: .75rem; }
 .rename-save {
   flex: 1; padding: .85rem; background: var(--green); color: var(--white); border: none;
   border-radius: 12px; font-family: 'Poppins', sans-serif; font-size: .78rem; cursor: pointer; font-weight: 500;
@@ -731,7 +731,7 @@ async function renderAll(){
     const label  = r.estado === 'confirmado' ? 'Asistirá' : r.estado === 'no_asiste' ? 'No asistirá' : 'Pendiente';
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td style="color:var(--text-soft);font-size:.72rem;">${idx+1}</td>
+      <td style="color:var(--text-soft);font-size:.75rem;">${idx+1}</td>
       <td>
         <div class="td-name">${esc(r.nombre||'—')}</div>
       </td>
@@ -743,7 +743,7 @@ async function renderAll(){
           ${label}
         </span>
       </td>
-      <td style="font-size:.74rem;color:var(--text-soft);max-width:200px;word-break:break-word;">${esc(r.mensaje||'—')}</td>
+      <td style="font-size:.75rem;color:var(--text-soft);max-width:200px;word-break:break-word;">${esc(r.mensaje||'—')}</td>
       <td class="td-date">${date}</td>
       <td>
         <div class="row-actions">
