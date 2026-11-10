@@ -41,9 +41,9 @@ async function call(cookie, { method = 'GET', query = '', body } = {}) {
   await tablesHandler(createReq({ method, url: `/api/tables${query}`, body, headers: cookie ? { cookie } : {} }), res);
   return res;
 }
-async function addGuest(cookie, nombre, categoria = 'familiares', pertenece = 'novia') {
+async function addGuest(cookie, nombre, categoria = 'familiares', pertenece = 'novia', cercana = false) {
   const res = createRes();
-  await guestsHandler(createReq({ method: 'POST', url: '/api/guests', body: { nombre, categoria, pertenece }, headers: { cookie } }), res);
+  await guestsHandler(createReq({ method: 'POST', url: '/api/guests', body: { nombre, categoria, pertenece, cercana }, headers: { cookie } }), res);
   assert.equal(res.statusCode, 200);
   return res.body;
 }
@@ -63,7 +63,7 @@ test('las mesas requieren sesión de administrador', async () => {
   assert.equal(forged.statusCode, 401);
 });
 
-test('muestra 12 mesas de 10 lugares con las dos primeras principales', async () => {
+test('muestra 12 mesas de 10 lugares, cada una con su sección', async () => {
   reset();
   const cookie = await login();
   const res = await call(cookie);
@@ -71,6 +71,10 @@ test('muestra 12 mesas de 10 lugares con las dos primeras principales', async ()
   assert.equal(res.body.tables.length, 12);
   assert.ok(res.body.tables.every((table) => table.capacity === 10));
   assert.equal(res.body.summary.capacity, 120);
+  assert.deepEqual(res.body.tables.map((table) => table.label), [
+    'Familia cercana de la novia', 'Familia cercana del novio', 'Familiares de la novia', 'Familiares de la novia',
+    'Familiares del novio', 'Familiares del novio', 'Participantes de la boda', 'Iglesia', 'Iglesia',
+    'Amigos de la novia', 'Amigos', 'Amigos']);
 });
 
 test('mover un invitado a una mesa, a otra y de regreso a "sin mesa"', async () => {
@@ -127,27 +131,43 @@ test('mover con su grupo lleva a toda la pareja o familia y respeta la capacidad
   assert.equal(tableOf((await call(cookie)).body, a.id), 2);
 });
 
-test('la organización automática junta grupos y lleva a los familiares a las mesas principales', async () => {
+test('la organización automática sienta a cada grupo completo en la mesa de su sección', async () => {
   reset();
   const cookie = await login();
-  const fam = [await addGuest(cookie, 'Rosa Diaz'), await addGuest(cookie, 'Juan Diaz'), await addGuest(cookie, 'Eva Diaz')];
-  await group(cookie, fam.map((p) => p.id), 'Familia Diaz');
-  const pareja = [await addGuest(cookie, 'Ana Lopez', 'amigos'), await addGuest(cookie, 'Beto Lopez', 'amigos')];
+  const close = [await addGuest(cookie, 'Rosa Diaz', 'familiares', 'novia', true), await addGuest(cookie, 'Juan Diaz', 'familiares', 'novia', true)];
+  await group(cookie, close.map((p) => p.id), 'Padres de la novia');
+  const tios = [await addGuest(cookie, 'Eva Mena', 'familiares', 'novio'), await addGuest(cookie, 'Leo Mena', 'familiares', 'novio'), await addGuest(cookie, 'Ivan Mena', 'familiares', 'novio')];
+  await group(cookie, tios.map((p) => p.id), 'Familia Mena');
+  const pareja = [await addGuest(cookie, 'Ana Lopez', 'amigos', 'novia'), await addGuest(cookie, 'Beto Lopez', 'amigos', 'novia')];
   await group(cookie, pareja.map((p) => p.id), 'Ana y Beto');
-  const solo = await addGuest(cookie, 'Carlos Mena', 'companeros', 'novio');
+  const iglesia = await addGuest(cookie, 'Carlos Mena', 'iglesia', 'novio');
+  const participante = await addGuest(cookie, 'Sofia Paz', 'participantes', 'novia');
   const res = await call(cookie, { method: 'POST', query: '?action=auto' });
   assert.equal(res.statusCode, 200);
-  assert.equal(res.body.result.placed, 6);
-  const famTables = new Set(fam.map((p) => tableOf(res.body, p.id)));
-  assert.equal(famTables.size, 1);
-  assert.ok([1, 2].includes([...famTables][0]), 'familia en mesa principal');
-  assert.equal(new Set(pareja.map((p) => tableOf(res.body, p.id))).size, 1);
-  assert.ok(tableOf(res.body, pareja[0].id) > 2, 'amigos fuera de las principales');
-  assert.ok(tableOf(res.body, solo.id) > 2);
+  assert.equal(res.body.result.placed, 9);
+  assert.deepEqual(close.map((p) => tableOf(res.body, p.id)), [1, 1], 'familia cercana de la novia: mesa 1');
+  assert.deepEqual(tios.map((p) => tableOf(res.body, p.id)), [5, 5, 5], 'familiares del novio: mesa 5');
+  assert.deepEqual(pareja.map((p) => tableOf(res.body, p.id)), [10, 10], 'amigos de la novia: mesa 10');
+  assert.equal(tableOf(res.body, iglesia.id), 8);
+  assert.equal(tableOf(res.body, participante.id), 7);
   assert.equal(res.body.summary.unseated, 0);
+  assert.equal(res.body.people.find((p) => p.id === close[0].id).cercana, true);
   // Repetir no mueve a nadie.
-  const again = await call(cookie, { method: 'POST', query: '?action=auto' });
-  assert.equal(again.body.result.placed, 0);
+  assert.equal((await call(cookie, { method: 'POST', query: '?action=auto' })).body.result.placed, 0);
+});
+
+test('la marca de familia cercana solo vale para familiares', async () => {
+  reset();
+  const cookie = await login();
+  const amigo = await addGuest(cookie, 'Pedro Gil', 'amigos', 'novio', true);
+  assert.equal(amigo.cercana, false);
+  const familiar = await addGuest(cookie, 'Tio Gil', 'familiares', 'novio', true);
+  assert.equal(familiar.cercana, true);
+  const res = createRes();
+  await guestsHandler(createReq({ method: 'PUT', url: '/api/guests', headers: { cookie },
+    body: { id: familiar.id, nombre: 'Tio Gil', categoria: 'amigos', pertenece: 'novio', cercana: true, cantidad_personas: 1 } }), res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.cercana, false, 'al dejar de ser familiar deja de ser cercano');
 });
 
 test('vaciar una mesa o todas, y editar nombre, tipo y capacidad', async () => {
@@ -160,9 +180,13 @@ test('vaciar una mesa o todas, y editar nombre, tipo y capacidad', async () => {
   let res = await call(cookie, { method: 'POST', query: '?action=reset', body: { table_id: 4 } });
   assert.equal(tableOf(res.body, a.id), null);
   assert.equal(tableOf(res.body, b.id), 5);
-  res = await call(cookie, { method: 'PATCH', body: { id: 5, name: ' Mesa   de honor ', is_main: true, capacity: 8 } });
+  res = await call(cookie, { method: 'PATCH', body: { id: 5, name: ' Mesa   de honor ', category: 'iglesia', side: null, capacity: 8 } });
   assert.equal(res.statusCode, 200);
-  assert.deepEqual([res.body.tables[4].name, res.body.tables[4].is_main, res.body.tables[4].capacity], ['Mesa de honor', true, 8]);
+  const edited = res.body.tables[4];
+  assert.deepEqual([edited.name, edited.category, edited.side, edited.is_main, edited.capacity, edited.label], ['Mesa de honor', 'iglesia', null, false, 8, 'Iglesia']);
+  res = await call(cookie, { method: 'PATCH', body: { id: 5, category: 'familia_cercana', side: 'novio' } });
+  assert.deepEqual([res.body.tables[4].label, res.body.tables[4].is_main], ['Familia cercana del novio', true]);
+  assert.equal((await call(cookie, { method: 'PATCH', body: { id: 5, category: 'vip' } })).statusCode, 400);
   res = await call(cookie, { method: 'PATCH', body: { id: 5, capacity: 0 } });
   assert.equal(res.statusCode, 400);
   await call(cookie, { method: 'PATCH', body: { id: 5, capacity: 1 } });

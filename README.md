@@ -23,15 +23,32 @@ Frontend estático + funciones serverless en `api/` (Vercel) + Supabase como bas
 | `ADMIN_SESSION_SECRET` | recomendada | ≥ 32 caracteres; si falta se usa la service key |
 
 ## Base de datos
-Ejecuta en el SQL Editor de Supabase, en orden, los archivos de `migrations/` (001 → 011).
+Ejecuta en el SQL Editor de Supabase, en orden, los archivos de `migrations/` (001 → 012).
 La 010 corrige la separación de grupos con personas eliminadas, protege las
-confirmaciones de quienes ya entraron y sincroniza el teléfono. La 011 crea el módulo de mesas.
+confirmaciones de quienes ya entraron y sincroniza el teléfono. La 011 crea el módulo de mesas y la 012 añade las secciones de las mesas y la marca de familia cercana
+(ejecútala antes de desplegar esta versión).
 
 ## Mesas
-Son 12 mesas de 10 lugares (el límite lo garantiza la base de datos). Las dos primeras son
-"principales" —reservadas para familiares— y se puede cambiar cuáles con el lápiz de cada mesa.
-La organización automática solo sienta a quienes no tienen mesa, mantiene juntas a las parejas y
-familias (una invitación = una mesa, salvo que no quepan) y lleva a los familiares a las mesas principales.
+Son 12 mesas de 10 lugares (el límite lo garantiza la base de datos). Cada mesa tiene una sección:
+
+| Mesa | Sección |
+| --- | --- |
+| 1 | Familia cercana de la novia |
+| 2 | Familia cercana del novio |
+| 3 y 4 | Familiares de la novia |
+| 5 y 6 | Familiares del novio |
+| 7 | Participantes de la boda |
+| 8 y 9 | Iglesia |
+| 10 | Amigos de la novia |
+| 11 y 12 | Amigos (los compañeros se sientan aquí) |
+
+La sección de cada mesa se cambia con el lápiz de la mesa. **Familia cercana** se marca con una casilla
+en la ficha del invitado (solo aparece para la categoría "Familiares").
+
+La organización automática solo sienta a quienes no tienen mesa y mantiene juntas a las parejas y
+familias (una invitación = una mesa, salvo que no quepan). Cada invitación va a la mesa de su sección
+(categoría y lado predominantes); si esa se llena, pasa a la sección más parecida y avisa cuando
+queda fuera de la suya. Iglesia, participantes y amigos no ocupan mesas de familia mientras haya otro lugar.
 Se mueve a un invitado tocándolo y luego tocando la mesa, o arrastrándolo; por defecto se mueve con su grupo.
 
 ## Desarrollo

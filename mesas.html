@@ -47,6 +47,7 @@ button,input,select{font:inherit}
 .table-card.targetable{cursor:pointer}.table-card.targetable:hover{border-color:var(--green);box-shadow:0 0 0 3px #52765322}
 .t-head{display:flex;align-items:flex-start;justify-content:space-between;gap:.4rem}
 .t-head h4{font:600 1.35rem 'Cormorant Garamond',serif;margin:0;line-height:1.1}
+.badge.plain{background:var(--green-light);color:var(--green-dark)}
 .badge{display:inline-block;font-size:.58rem;font-weight:600;padding:.15rem .5rem;border-radius:999px;background:var(--gold-light);color:#7a5f10;margin-top:.25rem}
 .icon-btn{border:1px solid var(--line);background:#fff;border-radius:9px;width:34px;height:34px;cursor:pointer;color:var(--soft);display:grid;place-items:center}.icon-btn:hover{color:var(--green);border-color:var(--green)}
 .icon-btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -76,6 +77,7 @@ body.busy .board{opacity:.7;pointer-events:none}
 .dialog{width:min(440px,100%);background:#fff;border-radius:18px;padding:1.1rem;box-shadow:var(--shadow)}
 .dialog h2{font:600 1.5rem 'Cormorant Garamond',serif;margin:0 0 .6rem}
 .dialog label{display:grid;gap:.35rem;font-size:.7rem;color:var(--soft);margin:.65rem 0}
+.dialog select{width:100%;border:1px solid var(--line);border-radius:10px;padding:.65rem .75rem;font-size:.78rem;color:var(--ink);background:#fff}
 .dialog input[type=text],.dialog input[type=number]{width:100%;border:1px solid var(--line);border-radius:10px;padding:.65rem .75rem;font-size:.78rem;color:var(--ink)}
 .dialog .check{display:flex;align-items:flex-start;gap:.6rem;font-size:.76rem;color:var(--ink)}.dialog .check input{accent-color:var(--green);width:18px;height:18px;margin-top:.1rem}
 .dialog .fine{font-size:.66rem;color:var(--soft);line-height:1.5;margin:.2rem 0 0}
@@ -110,7 +112,7 @@ body.busy .board{opacity:.7;pointer-events:none}
 </header>
 <main class="wrap">
   <section class="intro" id="mesas-intro"><h2>Organiza a tus invitados por mesa</h2>
-    <p>Toca a un invitado y luego toca la mesa donde quieres sentarlo, o arrástralo hasta ella. Las parejas y familias se mueven juntas. Las mesas <strong>principales</strong> están pensadas para familiares; puedes cambiar cuáles son con el lápiz de cada mesa.</p></section>
+    <p>Toca a un invitado y luego toca la mesa donde quieres sentarlo, o arrástralo hasta ella. Las parejas y familias se mueven juntas. Cada mesa tiene una <strong>sección</strong> (por ejemplo, Familia cercana de la novia o Iglesia) y la organización automática sienta a cada quien en la suya; puedes cambiarla con el lápiz de la mesa.</p></section>
   <section class="summary" id="summary" aria-label="Resumen de mesas"></section>
   <div id="page-error" class="error" role="alert"></div>
   <div class="notice" id="notices" role="status" aria-live="polite"></div>
@@ -137,7 +139,8 @@ body.busy .board{opacity:.7;pointer-events:none}
     <h2 id="edit-title">Editar mesa</h2>
     <label>Nombre de la mesa<input type="text" id="edit-name" maxlength="40" required></label>
     <label>Lugares<input type="number" id="edit-capacity" min="1" max="30" required></label>
-    <label class="check"><input type="checkbox" id="edit-main"><span>Mesa principal<br><span class="fine">Reservada para familiares: la organización automática les da prioridad aquí.</span></span></label>
+    <label>Sección de la mesa<select id="edit-section"></select></label>
+    <p class="fine">La organización automática sienta aquí a quienes corresponden a esta sección. También puedes mover a cualquiera a mano.</p>
     <p class="dialog-error" id="edit-error" role="alert"></p>
     <div class="modal-actions"><button class="btn warn" id="edit-clear" type="button">Vaciar esta mesa</button><div><button class="btn" id="edit-cancel" type="button">Cancelar</button><button class="btn primary" id="edit-save" type="submit">Guardar</button></div></div>
   </form>
@@ -150,6 +153,13 @@ body.busy .board{opacity:.7;pointer-events:none}
 'use strict';
 const $ = (id) => document.getElementById(id);
 const { escapeHtml: esc, withBusy } = AdminCommon;
+const SECTIONS = [
+  ['familia_cercana|novia', 'Familia cercana de la novia'], ['familia_cercana|novio', 'Familia cercana del novio'],
+  ['familiares|novia', 'Familiares de la novia'], ['familiares|novio', 'Familiares del novio'],
+  ['participantes|', 'Participantes de la boda'], ['iglesia|', 'Iglesia'],
+  ['amigos|novia', 'Amigos de la novia'], ['amigos|novio', 'Amigos del novio'], ['amigos|', 'Amigos'],
+  ['|', 'Cualquier invitado'],
+];
 let state = { tables: [], people: [], summary: {}, warnings: [] };
 let selectedId = null, busy = false, dragging = false, planWarnings = [], editingTable = null, toastTimer;
 
@@ -193,7 +203,7 @@ function chip(person, compact = false) {
   if (person.id === selectedId) classes.push('selected'); else if (related) classes.push('related');
   if (person.estado_rsvp === 'no_asiste') classes.push('declined');
   if (query) classes.push(norm(`${person.nombre} ${person.invitation_name}`).includes(query) ? 'match' : 'dim');
-  const meta = [grouped ? person.invitation_name : '', person.categoria === 'familiares' ? 'Familiar' : '',
+  const meta = [grouped ? person.invitation_name : '', person.cercana ? 'Familia cercana' : person.categoria === 'familiares' ? 'Familiar' : '',
     person.estado_rsvp === 'no_asiste' ? 'No asistirá' : ''].filter(Boolean).map(esc).join(' · ');
   const state_ = person.estado_rsvp || 'pendiente';
   const label = state_ === 'confirmado' ? 'confirmó' : state_ === 'no_asiste' ? 'no asistirá' : 'sin responder';
@@ -235,7 +245,7 @@ function render() {
     const full = seated.length >= table.capacity;
     const here = holding && personById(selectedId)?.table_id === table.id;
     return `<article class="table-card${table.is_main ? ' main' : ''}${full ? ' full' : ''}${holding && !here ? ' targetable' : ''}" data-drop="${table.id}" data-table="${table.id}">
-      <div class="t-head"><div><h4>${esc(table.name)}</h4>${table.is_main ? '<span class="badge">Principal · familiares</span>' : ''}</div>
+      <div class="t-head"><div><h4>${esc(table.name)}</h4><span class="badge${table.is_main ? '' : ' plain'}">${esc(table.label || 'Cualquier invitado')}</span></div>
         <button class="icon-btn" type="button" data-edit="${table.id}" aria-label="Editar ${esc(table.name)}"><svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button></div>
       <div class="meter" aria-hidden="true"><i style="width:${pct}%"></i></div>
       <div class="count"><b>${seated.length}</b> / ${table.capacity} lugares${full ? ' · completa' : ` · ${table.capacity - seated.length} libre${table.capacity - seated.length === 1 ? '' : 's'}`}</div>
@@ -374,7 +384,9 @@ function openEdit(id) {
   if (!table) return;
   editingTable = id;
   $('edit-title').textContent = `Editar ${table.name}`;
-  $('edit-name').value = table.name; $('edit-capacity').value = table.capacity; $('edit-main').checked = table.is_main;
+  $('edit-name').value = table.name; $('edit-capacity').value = table.capacity;
+  $('edit-section').innerHTML = SECTIONS.map(([value, label]) => `<option value="${esc(value)}">${esc(label)}</option>`).join('');
+  $('edit-section').value = `${table.category || ''}|${table.side || ''}`;
   $('edit-error').textContent = '';
   $('edit-modal').classList.add('show');
   $('edit-name').focus();
@@ -388,8 +400,9 @@ $('edit-form').addEventListener('submit', (event) => {
   const id = editingTable;
   return withBusy($('edit-save'), async () => {
     try {
+      const [category, side] = $('edit-section').value.split('|');
       setState(await api('/api/tables', { method: 'PATCH', body: JSON.stringify({ id, name: $('edit-name').value,
-        capacity: Number($('edit-capacity').value), is_main: $('edit-main').checked }) }));
+        capacity: Number($('edit-capacity').value), category: category || null, side: side || null }) }));
       closeEdit(); render(); notify('Mesa actualizada.');
     } catch (error) { $('edit-error').textContent = error.message; }
   });
