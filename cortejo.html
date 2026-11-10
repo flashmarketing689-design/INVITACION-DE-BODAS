@@ -46,6 +46,7 @@ h2.section{font:600 1.6rem 'Poppins',system-ui,sans-serif;margin:1.6rem 0 .3rem}
 .person{display:flex;align-items:center;justify-content:space-between;gap:.5rem;border:1px solid var(--line);border-left:4px solid var(--c,var(--green));border-radius:10px;padding:.35rem .5rem .35rem .6rem}
 .person .who{display:grid;gap:.05rem;min-width:0}.person .name{font-size:.78rem;font-weight:500;line-height:1.25}.person .meta{font-size:.75rem;color:var(--soft);line-height:1.3}
 .person.declined{background:var(--red-light)}
+.add-role-card{border:2px dashed var(--line);border-top:2px dashed var(--line);box-shadow:none;background:transparent;align-items:center;justify-content:center;min-height:9rem;cursor:pointer;font-weight:600;font-size:1rem;color:var(--green-dark)}.add-role-card:hover{border-color:var(--green);background:var(--green-light)}.add-role-card .plus{font-size:1.8rem;line-height:1}
 .empty{margin:0;padding:.8rem .5rem;border:1px dashed var(--line);border-radius:11px;text-align:center;font-size:.75rem;color:var(--soft)}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#c9c2b6;margin-right:.3rem}.dot.confirmado{background:var(--green)}.dot.no_asiste{background:var(--red)}
 .x-btn{border:0;background:none;color:var(--soft);cursor:pointer;font-size:1.1rem;line-height:1;width:28px;height:28px;border-radius:8px;flex:none}.x-btn:hover{color:var(--red);background:var(--red-light)}
@@ -137,7 +138,7 @@ body.busy main{opacity:.7;pointer-events:none}
 const $ = (id) => document.getElementById(id);
 const { escapeHtml: esc, withBusy } = AdminCommon;
 let state = { roles: [], people: [], summary: {} };
-let busy = false, addingTo = null, editingRole = null, toastTimer;
+let busy = false, addingTo = null, editingRole = null, assignAfterCreate = null, toastTimer;
 
 const PALETTE = [['#527653', '#e8f0e7'], ['#ad8b36', '#f6efdc'], ['#a85d62', '#f5e8e9'], ['#3b7ea1', '#e6f0f6'], ['#6b5b95', '#eeeaf5'], ['#c0703a', '#fbeee3'], ['#2f8a80', '#e3f2f0'], ['#8a6a4f', '#f1e9e1']];
 const color = (index) => PALETTE[index % PALETTE.length];
@@ -187,8 +188,7 @@ function personRow(person, roleId, c) {
 }
 function assignSelect(person) {
   const free = state.roles.filter((role) => !person.role_ids.includes(role.id));
-  if (!free.length) return '';
-  return `<select class="assign" data-assign="${person.id}" aria-label="Agregar un papel a ${esc(person.nombre)}"><option value="">Agregar papel…</option>${free.map((role) => `<option value="${role.id}">${esc(role.name)}</option>`).join('')}</select>`;
+  return `<select class="assign" data-assign="${person.id}" aria-label="Agregar un papel a ${esc(person.nombre)}"><option value="">Agregar papel…</option>${free.map((role) => `<option value="${role.id}">${esc(role.name)}</option>`).join('')}<option value="__new">＋ Crear papel nuevo…</option></select>`;
 }
 
 function render() {
@@ -217,7 +217,7 @@ function render() {
       ${role.description ? `<p class="desc">${esc(role.description)}</p>` : ''}
       <ul class="people">${people.length ? people.map((p) => personRow(p, role.id, c)).join('') : '<li class="empty">Nadie con este papel todavía.</li>'}</ul>
       <button class="btn small add-btn" type="button" data-add="${role.id}">Agregar personas</button></article>`;
-  }).join('') || '<p class="empty">Todavía no hay papeles. Crea el primero con "Nuevo papel".</p>';
+  }).join('') + '<button class="role-card add-role-card" type="button" data-new-role><span class="plus" aria-hidden="true">＋</span>Nuevo papel</button>';
 
   const withRole = state.people.filter((p) => p.role_ids.length || p.sin_invitacion)
     .sort((a, b) => (roleIndex(a.role_ids[0]) - roleIndex(b.role_ids[0])) || byName(a, b));
@@ -303,8 +303,9 @@ $('add-form').addEventListener('submit', (event) => {
 });
 
 /* ───── Crear y editar papeles ───── */
-function openRole(id) {
+function openRole(id, assignTo = null) {
   editingRole = id;
+  assignAfterCreate = assignTo;
   const role = id ? roleById(id) : null;
   $('role-title').textContent = role ? `Editar «${role.name}»` : 'Nuevo papel';
   $('role-name').value = role ? role.name : ''; $('role-desc').value = role?.description || '';
@@ -312,16 +313,24 @@ function openRole(id) {
   $('role-modal').classList.add('show');
   $('role-name').focus();
 }
-function closeRole() { $('role-modal').classList.remove('show'); editingRole = null; }
+function closeRole() { $('role-modal').classList.remove('show'); editingRole = null; assignAfterCreate = null; }
 $('role-cancel').addEventListener('click', closeRole);
 $('role-modal').addEventListener('click', (event) => { if (event.target === $('role-modal')) closeRole(); });
 $('role-form').addEventListener('submit', (event) => {
   event.preventDefault();
-  const id = editingRole, body = { name: $('role-name').value, description: $('role-desc').value };
+  const id = editingRole, personId = assignAfterCreate, body = { name: $('role-name').value, description: $('role-desc').value };
   return withBusy($('role-save'), async () => {
     try {
       setState(id ? await api('/api/cortejo', { method: 'PATCH', body: JSON.stringify({ id, ...body }) }) : await post('create', body));
-      closeRole(); render(); notify(id ? 'Papel actualizado.' : 'Papel creado. Ya puedes agregarle personas.');
+      let message = id ? 'Papel actualizado.' : 'Papel creado. Ya puedes agregarle personas.';
+      const person = personById(personId);
+      if (!id && person) {
+        // El papel nuevo es el último de la lista: se le asigna a quien lo pidió desde su selector.
+        const created = state.roles[state.roles.length - 1];
+        setState(await post('assign', { role_id: created.id, guest_ids: [person.id] }));
+        message = `${person.nombre} → ${created.name}`;
+      }
+      closeRole(); render(); notify(message);
     } catch (error) { if (error.status !== 401) $('role-error').textContent = error.message; }
   });
 });
@@ -355,6 +364,7 @@ $('print-btn').addEventListener('click', () => window.print());
 /* ───── Eventos ───── */
 document.addEventListener('click', (event) => {
   const add = event.target.closest('[data-add]'); if (add) { openAdd(Number(add.dataset.add)); return; }
+  if (event.target.closest('[data-new-role]')) { openRole(null); return; }
   const edit = event.target.closest('[data-edit-role]'); if (edit) { openRole(Number(edit.dataset.editRole)); return; }
   const remove = event.target.closest('[data-remove]'); if (remove) { removeFrom(Number(remove.dataset.role), Number(remove.dataset.remove)); return; }
   const up = event.target.closest('[data-up]'); if (up) { moveRole(Number(up.dataset.up), -1); return; }
@@ -370,6 +380,7 @@ document.addEventListener('click', (event) => {
 document.addEventListener('change', (event) => {
   const select = event.target.closest('select[data-assign]');
   if (!select || !select.value) return;
+  if (select.value === '__new') { const personId = Number(select.dataset.assign); select.value = ''; openRole(null, personId); return; }
   const person = personById(Number(select.dataset.assign)), role = roleById(Number(select.value));
   if (person && role) assignTo(role.id, [person.id], `${person.nombre} → ${role.name}`);
 });
