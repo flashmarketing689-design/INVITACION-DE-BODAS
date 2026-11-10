@@ -222,6 +222,7 @@ function chip(person, compact = false) {
   if (person.estado_rsvp === 'no_asiste') classes.push('declined');
   if (query) classes.push(norm(`${person.nombre} ${person.invitation_name}`).includes(query) ? 'match' : 'dim');
   const meta = [grouped ? person.invitation_name : '', person.parentesco_label || (person.cercana ? 'Familia cercana' : person.categoria === 'familiares' ? 'Familiar' : ''),
+    (person.roles || []).join(', '),
     person.estado_rsvp === 'no_asiste' ? 'No asistirá' : ''].filter(Boolean).map(esc).join(' · ');
   const state_ = person.estado_rsvp || 'pendiente';
   const label = state_ === 'confirmado' ? 'confirmó' : state_ === 'no_asiste' ? 'no asistirá' : 'sin responder';

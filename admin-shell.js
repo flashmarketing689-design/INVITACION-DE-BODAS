@@ -28,6 +28,13 @@
       ],
     },
     {
+      key: 'cortejo', label: 'Cortejo', href: 'cortejo.html', icon: 'star',
+      sections: [
+        ['papeles', 'Papeles del cortejo'],
+        ['por-persona', 'Por persona'],
+      ],
+    },
+    {
       key: 'mesas', label: 'Mesas', href: 'mesas.html', icon: 'table',
       sections: [
         ['sin-mesa', 'Invitados sin mesa'],
@@ -47,6 +54,7 @@
     dashboard: '<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="5" rx="1.5"/><rect x="13.5" y="11.5" width="7" height="9" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/>',
     people: '<path d="M16 20v-1.5a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4V20"/><circle cx="9.5" cy="7" r="3.5"/><path d="M17 11a3.5 3.5 0 0 0 0-7M21 20v-1.5a4 4 0 0 0-3-3.87"/>',
     invitation: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6M8 10l-4 4m12-4 4 4"/>',
+    star: '<path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/>',
     table: '<circle cx="12" cy="12" r="5"/><circle cx="12" cy="3.5" r="1.7"/><circle cx="12" cy="20.5" r="1.7"/><circle cx="3.5" cy="12" r="1.7"/><circle cx="20.5" cy="12" r="1.7"/>',
     qr: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zm4 0h3m-7 4v3h3m1-3h3v3h-3"/>',
   };

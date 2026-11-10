@@ -117,6 +117,30 @@ const supabaseStore = {
 
 const store = () => (supabaseConfigured && supabase ? supabaseStore : localStore);
 
+/* ─── Papeles del cortejo (opcional: si falta la migración 014 se ignoran) ─── */
+async function guestRoleNames() {
+  try {
+    let roles, rows;
+    if (supabaseConfigured && supabase) {
+      const a = await supabase.from('wedding_roles').select('id, name, sort_order').order('sort_order').order('id');
+      const b = await supabase.from('guest_roles').select('guest_id, role_id').limit(5000);
+      if (a.error || b.error) return new Map();
+      roles = a.data || []; rows = b.data || [];
+    } else {
+      const saved = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'roles_local.json'), 'utf8'));
+      roles = saved.roles || []; rows = saved.assignments || [];
+    }
+    const order = new Map([...roles].sort((x, y) => x.sort_order - y.sort_order || x.id - y.id).map((role, index) => [role.id, { index, name: role.name }]));
+    const byGuest = new Map();
+    for (const row of rows) {
+      if (!order.has(row.role_id)) continue;
+      if (!byGuest.has(row.guest_id)) byGuest.set(row.guest_id, []);
+      byGuest.get(row.guest_id).push(order.get(row.role_id));
+    }
+    return new Map([...byGuest].map(([id, list]) => [Number(id), list.sort((x, y) => x.index - y.index).map((item) => item.name)]));
+  } catch { return new Map(); }
+}
+
 /* ─── Estado para la pantalla ─── */
 async function loadAll() {
   const adapter = store();
@@ -127,6 +151,8 @@ async function loadAll() {
     state = T.pruneAssignments(state, active);
   }
   const people = T.buildPeople(invitations, state.assignments, await adapter.familyInfo());
+  const roleNames = await guestRoleNames();
+  for (const person of people) person.roles = roleNames.get(person.id) || [];
   return { state, people };
 }
 
@@ -277,3 +303,6 @@ module.exports = async function handler(req, res) {
     res.status(500).json({ error: 'No se pudo completar la operación de mesas.' });
   }
 };
+
+// Otros módulos (cortejo) reutilizan la marca de familia cercana y el parentesco.
+module.exports.familyInfo = () => store().familyInfo();
