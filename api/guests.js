@@ -26,6 +26,7 @@ const { supabase, supabaseConfigured } = require('../lib/supabaseClient');
 const { allowRequest, clientIp } = require('../lib/rateLimit');
 const { getLocalInvitations, saveLocalInvitations, ensureLocalSingletons, isMissingMigration } = require('../lib/invitations');
 const { guestInvitationDetails } = require('../lib/guestInvitationDetails');
+const Kinships = require('../lib/kinships');
 
 /* ─── Store local (fallback dev) ─── */
 const { DATA_DIR } = require('../lib/dataDir');
@@ -63,6 +64,15 @@ function parseBody(body) {
   return body;
 }
 
+// Modo local (desarrollo): la lista editable de parentescos vive en data/kinships_local.json.
+function localKinshipExists(key) {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'kinships_local.json'), 'utf8'));
+    if (Array.isArray(parsed)) return parsed.some((item) => item.key === key);
+  } catch { /* sin archivo: valen los tres iniciales */ }
+  return Kinships.DEFAULT_KINSHIPS.some((item) => item.key === key);
+}
+
 function newToken() {
   // UUID v4 criptográficamente aleatorio (122 bits de entropía)
   return crypto.randomUUID();
@@ -84,9 +94,9 @@ function normalizeGuestInput(payload) {
     cantidad_personas: cantidad,
     notas: String(payload.notas || '').trim().slice(0, 500) || null,
     // Parentesco (madre, padre, hermano): solo para "familiares", e implica familia cercana.
-    parentesco: categoria === 'familiares' && ['madre', 'padre', 'hermano'].includes(payload.parentesco) ? payload.parentesco : null,
+    parentesco: categoria === 'familiares' && Kinships.isValidKey(payload.parentesco) ? payload.parentesco : null,
     // Familia cercana: solo tiene sentido para la categoría "familiares".
-    cercana: categoria === 'familiares' && (payload.cercana === true || ['madre', 'padre', 'hermano'].includes(payload.parentesco)),
+    cercana: categoria === 'familiares' && (payload.cercana === true || Kinships.isValidKey(payload.parentesco)),
   };
 }
 
@@ -332,6 +342,7 @@ module.exports = async function handler(req, res) {
       const { data, error } = await supabase.from('guests').insert(row).select(PUBLIC_COLUMNS).single();
       if (error) {
         console.error('Guests insert error:', error.message);
+        if (error.code === '23503') { res.status(400).json({ error: 'El parentesco elegido ya no existe. Actualiza la página y vuelve a elegirlo.' }); return; }
         res.status(500).json({ error: 'Error creando invitado' });
         return;
       }
@@ -339,6 +350,7 @@ module.exports = async function handler(req, res) {
       return;
     }
 
+    if (row.parentesco && !localKinshipExists(row.parentesco)) { res.status(400).json({ error: 'El parentesco elegido ya no existe. Actualiza la página y vuelve a elegirlo.' }); return; }
     const local = readLocalGuests();
     const created = { ...row, id: local.reduce((m, g) => Math.max(m, g.id || 0), 1000) + 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     writeLocalGuests([...local, created]);
@@ -389,6 +401,7 @@ module.exports = async function handler(req, res) {
         .maybeSingle();
       if (error) {
         console.error('Guests update error:', error.message);
+        if (error.code === '23503') { res.status(400).json({ error: 'El parentesco elegido ya no existe. Actualiza la página y vuelve a elegirlo.' }); return; }
         res.status(500).json({ error: 'Error actualizando invitado' });
         return;
       }
@@ -407,6 +420,7 @@ module.exports = async function handler(req, res) {
       res.status(400).json({ error: 'Cada persona debe tener su propio registro. Para resolver un cupo antiguo, revisa primero a quién incluye.' });
       return;
     }
+    if (changes.parentesco && !localKinshipExists(changes.parentesco)) { res.status(400).json({ error: 'El parentesco elegido ya no existe. Actualiza la página y vuelve a elegirlo.' }); return; }
     local[idx] = { ...local[idx], ...changes, updated_at: new Date().toISOString() };
     const invitationRows = getLocalInvitations();
     const invitation = invitationRows.find((row) => row.status === 'active'
