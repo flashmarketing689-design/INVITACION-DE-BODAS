@@ -3,6 +3,10 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 
+const os = require('os');
+// Carpeta propia de este archivo de prueba: así no se pisa con otros que corren en paralelo.
+process.env.WEDDING_DATA_DIR = require('fs').mkdtempSync(require('path').join(os.tmpdir(), 'boda-test-'));
+process.on('exit', () => require('fs').rmSync(process.env.WEDDING_DATA_DIR, { recursive: true, force: true }));
 process.env.ADMIN_PASSWORD = 'test-admin-pass';
 
 const rsvpsHandler = require('../api/rsvps');
@@ -12,7 +16,7 @@ const invitationsHandler = require('../api/invitations');
 const checkinHandler = require('../api/checkin');
 const qrHandler = require('../api/qr');
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
+const DATA_DIR = process.env.WEDDING_DATA_DIR;
 const GUESTS_FILE = path.join(DATA_DIR, 'guests.json');
 const LOCAL_RSVPS = path.join(DATA_DIR, 'rsvp_respuestas_local.json');
 const LOCAL_INVITATIONS = path.join(DATA_DIR, 'invitations_local.json');
