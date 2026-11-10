@@ -23,7 +23,7 @@
   <div class="banner error" id="error" role="alert"></div>
   <div class="grid">
     <section class="card" id="qr-scan">
-      <h2>Escanea el pase</h2><p>Escanear solo consulta el pase. Selecciona por nombre a quienes están presentes y confirma la entrada; otros celulares verán el estado actualizado desde Supabase.</p>
+      <h2>Escanea el pase</h2>
       <div class="video-wrap"><video id="video" playsinline muted></video><div class="camera-placeholder" id="camera-placeholder">Pulsa “Abrir cámara” y permite el acceso.<br>El escaneo requiere HTTPS.</div></div>
       <div class="controls"><button class="button primary" id="start-camera" type="button">Abrir cámara</button><button class="button" id="stop-camera" type="button" disabled>Detener cámara</button></div>
       <form class="input-row" id="manual-form"><input id="manual-ticket" inputmode="text" autocomplete="off" placeholder="Pega el código del pase o su enlace"><button class="button" type="submit">Consultar</button></form>
@@ -33,10 +33,10 @@
         <div class="ticket-actions"><button class="button primary" id="register-entry" type="button" disabled>Registrar entrada seleccionada</button></div>
       </section>
     </section>
-    <section class="card" id="busqueda-nombre"><h2>Buscar por nombre</h2><p>Solo se muestran personas con asistencia confirmada. Busca si no se puede leer el código QR.</p><input class="search" id="search" type="search" placeholder="Nombre o familia…" autocomplete="off"><div class="roster" id="roster"><div class="empty">Cargando lista de confirmados…</div></div></section>
+    <section class="card" id="busqueda-nombre"><h2>Buscar por nombre</h2><input class="search" id="search" type="search" placeholder="Nombre o familia…" autocomplete="off"><div class="roster" id="roster"><div class="empty">Cargando lista de confirmados…</div></div></section>
   </div>
 </main>
-<section class="login show" id="login-screen"><form class="login-box" id="login-form"><h2>Acceso de recepción</h2><p>Ingresa el nombre de quien usa este teléfono y la clave de recepción configurada para el evento.</p><label for="operator">Nombre del operador</label><input id="operator" maxlength="60" autocomplete="name" required><label for="password">Clave de recepción</label><input id="password" type="password" autocomplete="current-password" required><button class="button primary" type="submit">Entrar</button><div class="banner error" id="login-error"></div></form></section>
+<section class="login show" id="login-screen"><form class="login-box" id="login-form"><h2>Acceso de recepción</h2><label for="operator">Nombre del operador</label><input id="operator" maxlength="60" autocomplete="name" required><label for="password">Clave de recepción</label><input id="password" type="password" autocomplete="current-password" required><button class="button primary" type="submit">Entrar</button><div class="banner error" id="login-error"></div></form></section>
 <script src="/admin-common.js?v=1"></script>
 <script>
 'use strict';

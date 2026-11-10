@@ -20,12 +20,11 @@
 <body>
 <header class="top"><div class="brand"><h1>Invitaciones compartidas</h1><small>Boda Starlin &amp; Reneisy · 21 Nov 2026</small></div><nav class="nav"><a class="btn hide-mobile" href="invitados.html">Personas</a><a class="btn" href="recepcion.html">Recepción</a><button class="btn" id="logout" type="button">Salir</button></nav></header>
 <main class="wrap">
-  <section class="intro" id="invitaciones-resumen"><h2>Reúne personas bajo un mismo enlace</h2><p>Selecciona invitados para crear una invitación o arrastra una tarjeta sobre otra. También puedes añadir personas a una invitación existente o escribir nombres nuevos. Cada integrante conserva su respuesta individual; al cambiar el grupo se renueva el enlace y tendrás que compartirlo otra vez.</p></section>
   <section class="summary" id="summary" aria-label="Resumen de invitaciones"></section>
   <div id="page-error" class="error" role="alert"></div>
   <div class="layout">
     <section class="panel" id="crear-invitacion" aria-labelledby="choose-title">
-      <h3 id="choose-title">1. Selecciona personas</h3><p class="panel-sub">Arrastra una tarjeta sobre otra para crear pareja o familia; selecciona varias primero para agruparlas juntas. Para ampliar un grupo, arrástralas a su invitación. Las entradas antiguas con cupos sin nombres requieren revisión.</p>
+      <h3 id="choose-title">1. Selecciona personas</h3>
       <div class="toolbar"><input id="search" type="search" placeholder="Buscar por nombre…" autocomplete="off"><button class="btn" id="select-visible" type="button">Seleccionar visibles</button></div>
       <p class="selection-note" id="selection-count">0 seleccionadas</p>
       <div class="people" id="people-list"><div class="empty">Cargando personas…</div></div>
@@ -33,12 +32,11 @@
         <label>Tipo de invitación<select id="group-type"><option value="couple">Pareja (exactamente 2)</option><option value="family">Familia (2 o más)</option></select></label>
         <label>Nombre visible (opcional)<input id="display-name" maxlength="120" placeholder="Ej. Familia Pérez"></label>
         <label class="full">Contacto principal<select id="primary-contact"><option value="">Selecciona personas primero</option></select></label>
-        <p class="fine full">El texto de la pareja se completa con ambos nombres. En familias puedes usar un encabezado y los nombres individuales seguirán visibles.</p>
         <button class="btn primary full" id="group-submit" type="button" disabled>Crear invitación compartida</button>
       </div>
     </section>
     <section class="panel" id="grupos-invitacion" aria-labelledby="groups-title">
-      <h3 id="groups-title">2. Revisa enlaces y pases</h3><p class="panel-sub">El QR se activa cuando al menos una persona confirma. En recepción se selecciona por nombre quién llegó.</p>
+      <h3 id="groups-title">2. Revisa enlaces y pases</h3>
       <label class="group-search-label" for="group-search">Buscar invitación o integrante</label>
       <div class="toolbar"><input id="group-search" type="search" placeholder="Nombre del grupo o de cualquier persona…" autocomplete="off"><button class="btn" id="clear-group-filters" type="button">Limpiar</button></div>
       <div class="group-filters" role="group" aria-label="Filtrar invitaciones por tipo">
@@ -67,11 +65,10 @@
       <label>Categoría<select id="new-member-category"><option value="familiares">Familiares</option><option value="amigos">Amigos</option><option value="companeros">Compañeros</option><option value="iglesia">Iglesia</option><option value="participantes">Participantes</option></select></label>
     </div>
     <label>Nombre visible de la invitación (opcional)<input id="new-display-name" type="text" maxlength="120" placeholder="Se ajustará automáticamente"></label>
-    <p class="fine">Las personas nuevas heredarán esta lista y categoría. Puedes corregirlas luego en Personas. Busca sus nombres primero para evitar duplicados.</p>
     <div class="modal-actions"><button class="btn" id="member-cancel" type="button">Cancelar</button><button class="btn primary" id="member-save" type="submit">Agregar a la invitación</button></div>
   </form>
 </div>
-<div class="auth show" id="auth"><form class="auth-box" id="login-form"><h2>Acceso administrativo</h2><p>Inicia sesión con la clave de administración para gestionar grupos, enlaces y pases.</p><input id="password" type="password" autocomplete="current-password" placeholder="Clave de administración" aria-label="Clave de administración" required><button class="btn primary" type="submit" style="width:100%;margin-top:.4rem">Entrar</button><div class="error" id="login-error"></div></form></div>
+<div class="auth show" id="auth"><form class="auth-box" id="login-form"><h2>Acceso administrativo</h2><input id="password" type="password" autocomplete="current-password" placeholder="Clave de administración" aria-label="Clave de administración" required><button class="btn primary" type="submit" style="width:100%;margin-top:.4rem">Entrar</button><div class="error" id="login-error"></div></form></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="/invitation-share.js?v=1"></script>
 <script src="/guest-removal.js?v=1"></script>
@@ -187,7 +184,7 @@ function renderGroups(){
     && searchText([group.display_name,...(group.members||[]).map(member=>member.nombre)].join(' ')).includes(query))
     .sort((a,b)=>String(a.display_name).localeCompare(String(b.display_name),'es'));
   const visiblePeople=ordered.flatMap(group=>group.members||[]).reduce((sum,member)=>sum+(Number(member.cantidad_personas)||1),0);
-  $('group-results').textContent=`${ordered.length} ${ordered.length===1?'invitación':'invitaciones'} · ${visiblePeople} persona${visiblePeople===1?'':'s'}. Cada grupo aparece una sola vez.`;
+  $('group-results').textContent=`${ordered.length} ${ordered.length===1?'invitación':'invitaciones'} · ${visiblePeople} persona${visiblePeople===1?'':'s'}`;
   if(!ordered.length){$('groups-list').innerHTML=`<div class="empty">${invitations.length?'No hay invitaciones que coincidan. Cambia el tipo o limpia la búsqueda.':'Todavía no hay invitaciones activas.'}</div>`;return;}
   $('groups-list').innerHTML=ordered.map(group=>{
     const members=group.members||[];

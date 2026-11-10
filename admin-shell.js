@@ -4,49 +4,21 @@
   const modules = [
     {
       key: 'admin', label: 'Resumen RSVP', href: 'admin.html', icon: 'dashboard',
-      sections: [
-        ['stats-grid', 'Resumen de respuestas'],
-        ['capacidad-evento', 'Capacidad de la boda'],
-        ['filtros-rsvp', 'Filtros y búsqueda'],
-        ['respuestas', 'Lista de respuestas'],
-      ],
     },
     {
       key: 'invitados', label: 'Invitados', href: 'invitados.html', icon: 'people',
-      sections: [
-        ['stats-row', 'Resumen de invitados'],
-        ['invitados-filtros', 'Buscar y filtrar'],
-        ['listas-invitados', 'Listas del novio y la novia'],
-      ],
     },
     {
       key: 'invitaciones', label: 'Invitaciones', href: 'invitaciones.html', icon: 'invitation',
-      sections: [
-        ['summary', 'Resumen de grupos'],
-        ['crear-invitacion', 'Crear una invitación'],
-        ['grupos-invitacion', 'Enlaces y pases QR'],
-      ],
     },
     {
       key: 'cortejo', label: 'Cortejo', href: 'cortejo.html', icon: 'star',
-      sections: [
-        ['papeles', 'Papeles del cortejo'],
-        ['por-persona', 'Por persona'],
-      ],
     },
     {
       key: 'mesas', label: 'Mesas', href: 'mesas.html', icon: 'table',
-      sections: [
-        ['sin-mesa', 'Invitados sin mesa'],
-        ['mesas', 'Mesas del salón'],
-      ],
     },
     {
       key: 'recepcion', label: 'Recepción y QR', href: 'recepcion.html', icon: 'qr',
-      sections: [
-        ['qr-scan', 'Escanear o consultar pase'],
-        ['busqueda-nombre', 'Buscar por nombre'],
-      ],
     },
   ];
 
@@ -60,16 +32,12 @@
   };
   const menuIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>';
   const closeIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>';
-  const chevron = '<svg class="admin-nav-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>';
 
   const file = (location.pathname.split('/').pop() || 'admin.html').replace(/\.html$/, '');
   const active = modules.find((item) => item.key === file) || modules[0];
   const moduleLinks = modules.map((item) => {
     const current = item.key === active.key;
-    const subnav = current
-      ? `<div class="admin-nav-submenu">${item.sections.map(([id, label]) => `<a href="${item.href}#${id}">${label}</a>`).join('')}</div>`
-      : '';
-    return `<div class="admin-nav-item"><a class="admin-nav-link" href="${item.href}"${current ? ' aria-current="page"' : ''}><svg class="admin-nav-icon" viewBox="0 0 24 24" aria-hidden="true">${icons[item.icon]}</svg><span>${item.label}</span>${current ? chevron : ''}</a>${subnav}</div>`;
+    return `<div class="admin-nav-item"><a class="admin-nav-link" href="${item.href}"${current ? ' aria-current="page"' : ''}><svg class="admin-nav-icon" viewBox="0 0 24 24" aria-hidden="true">${icons[item.icon]}</svg><span>${item.label}</span></a></div>`;
   }).join('');
 
   const sidebar = document.createElement('aside');
