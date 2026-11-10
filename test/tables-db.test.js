@@ -38,11 +38,15 @@ async function people(count, prefix = 'Persona') {
 const move = (ids, table) => db.query('select public.move_guests_to_table($1::bigint[], $2::integer) as n', [ids, table]);
 const seated = async (table) => (await db.query('select count(*)::int as n from public.table_assignments where table_id = $1', [table])).rows[0].n;
 
-test('SQL: hay 12 mesas de 10 lugares y las dos primeras son principales', async () => {
-  const { rows } = await db.query('select id, name, capacity, is_main from public.wedding_tables order by id');
+test('SQL: hay 12 mesas de 10 lugares con el orden de secciones pedido', async () => {
+  const { rows } = await db.query('select id, name, capacity, is_main, category, side from public.wedding_tables order by id');
   assert.equal(rows.length, 12);
   assert.ok(rows.every((row) => row.capacity === 10));
-  assert.deepEqual(rows.filter((row) => row.is_main).map((row) => row.id), [1, 2]);
+  assert.deepEqual(rows.map((row) => `${row.id}:${row.category}:${row.side}`), [
+    '1:familia_cercana:novia', '2:familia_cercana:novio', '3:familiares:novia', '4:familiares:novia',
+    '5:familiares:novio', '6:familiares:novio', '7:participantes:null', '8:iglesia:null', '9:iglesia:null',
+    '10:amigos:novia', '11:amigos:null', '12:amigos:null']);
+  assert.deepEqual(rows.filter((row) => row.is_main).map((row) => row.id), [1, 2, 3, 4, 5, 6]);
   assert.equal(rows[0].name, 'Mesa 1');
 });
 
@@ -119,6 +123,32 @@ test('SQL: anon y authenticated no pueden tocar las mesas', async () => {
     await assert.rejects(db.query('select * from public.wedding_tables'), { code: '42501' });
     await assert.rejects(db.query('select * from public.table_assignments'), { code: '42501' });
   }
+});
+
+test('SQL: las secciones de las mesas y la marca de familia cercana se validan', async () => {
+  await assert.rejects(db.query("update public.wedding_tables set category = 'vip' where id = 1"), { code: '23514' });
+  await assert.rejects(db.query("update public.wedding_tables set side = 'ambos' where id = 1"), { code: '23514' });
+  await assert.rejects(db.query('update public.wedding_tables set category = null where id = 1'), { code: '23514' }, 'un lado sin categoría no vale');
+  await db.query("update public.wedding_tables set category = null, side = null where id = 1");
+  const { rows: [family] } = await db.query("insert into public.guests (nombre, pertenece, categoria) values ('Tia Cercana', 'novia', 'familiares') returning id, cercana");
+  assert.equal(family.cercana, false, 'por defecto nadie es familia cercana');
+  await db.query('update public.guests set cercana = true where id = $1', [family.id]);
+  const { rows: [friend] } = await db.query("insert into public.guests (nombre, pertenece, categoria) values ('Amigo Comun', 'novio', 'amigos') returning id");
+  await assert.rejects(db.query('update public.guests set cercana = true where id = $1', [friend.id]), { code: '23514' });
+  await assert.rejects(db.query("update public.guests set categoria = 'amigos' where id = $1", [family.id]), { code: '23514' },
+    'quien es familia cercana debe seguir siendo familiar');
+  await db.query("update public.guests set cercana = false, categoria = 'amigos' where id = $1", [family.id]);
+  await db.query("update public.wedding_tables set category = 'familia_cercana', side = 'novia', is_main = true where id = 1");
+});
+
+test('SQL: repetir 012 no pisa las secciones cambiadas desde el panel', async () => {
+  await db.query("update public.wedding_tables set category = 'iglesia', side = null, is_main = false where id = 3");
+  await db.exec('reset role;');
+  await db.exec(fs.readFileSync(path.join(migrationsDir, '012_table_sections.sql'), 'utf8'));
+  await db.exec('set role service_role;');
+  const { rows: [table] } = await db.query('select category, side, is_main from public.wedding_tables where id = 3');
+  assert.deepEqual(table, { category: 'iglesia', side: null, is_main: false });
+  await db.query("update public.wedding_tables set category = 'familiares', side = 'novia', is_main = true where id = 3");
 });
 
 test('SQL: 011 es repetible y conserva las asignaciones', async () => {

@@ -5,7 +5,7 @@
  * POST ?action=move      → { guest_ids, table_id|null, with_group? } sienta o libera personas
  * POST ?action=auto      → organiza automáticamente a quienes no tienen mesa
  * POST ?action=reset     → { table_id? } vacía una mesa o todas
- * PATCH                  → { id, name?, is_main?, capacity? } edita una mesa
+ * PATCH                  → { id, name?, capacity?, category?, side? } edita una mesa y su sección
  *
  * La capacidad se valida aquí para dar mensajes claros y se vuelve a garantizar
  * en la base de datos (migración 011), que es la que tiene la última palabra.
@@ -32,7 +32,7 @@ function parseBody(body) {
 function readLocalState() {
   try {
     const parsed = JSON.parse(fs.readFileSync(LOCAL_FILE, 'utf8'));
-    if (parsed && Array.isArray(parsed.tables) && Array.isArray(parsed.assignments)) return parsed;
+    if (parsed && Array.isArray(parsed.tables) && Array.isArray(parsed.assignments)) return T.ensureSections(parsed);
   } catch { /* primera vez: se usan las 12 mesas por defecto */ }
   return { tables: T.defaultTables(), assignments: [] };
 }
@@ -43,6 +43,12 @@ function writeLocalState(state) {
 
 const localStore = {
   async load() { return readLocalState(); },
+  async closeFamilyIds() {
+    try {
+      const guests = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'guests.json'), 'utf8'));
+      return new Set(guests.filter((guest) => guest.cercana && !guest.archived_at).map((guest) => Number(guest.id)));
+    } catch { return new Set(); }
+  },
   async move(state, guestIds, tableId) { writeLocalState(T.applyMove(state, guestIds, tableId)); },
   async applyPlan(state, plan) { writeLocalState(T.applyPlan(state, plan)); },
   async release(state, tableId) { writeLocalState(T.releaseTable(state, tableId)); },
@@ -54,6 +60,9 @@ function translateDbError(error) {
   const message = String(error?.message || '');
   if (['42P01', '42883', 'PGRST202', 'PGRST205'].includes(error?.code)) {
     return new T.TableError('MIGRATION', 'Primero ejecuta la migración 011_wedding_tables.sql en Supabase para activar las mesas.');
+  }
+  if (error?.code === '42703' || (error?.code === 'PGRST204' && /category|side|cercana/.test(message))) {
+    return new T.TableError('MIGRATION', 'Primero ejecuta la migración 012_table_sections.sql en Supabase para activar las secciones de las mesas.');
   }
   if (error?.code === '23514' && message.includes('table_full')) {
     return new T.TableError('TABLE_FULL', 'La mesa se llenó mientras movías a las personas. Actualiza e inténtalo de nuevo.');
@@ -76,9 +85,13 @@ async function dbCall(promise) {
 
 const supabaseStore = {
   async load() {
-    const tables = await dbCall(supabase.from('wedding_tables').select('id, name, capacity, is_main').order('id'));
+    const tables = await dbCall(supabase.from('wedding_tables').select('id, name, capacity, is_main, category, side').order('id'));
     const assignments = await dbCall(supabase.from('table_assignments').select('guest_id, table_id').limit(5000));
     return { tables: tables || [], assignments: assignments || [] };
+  },
+  async closeFamilyIds() {
+    const rows = await dbCall(supabase.from('guests').select('id').eq('cercana', true).is('archived_at', null).limit(5000));
+    return new Set((rows || []).map((row) => Number(row.id)));
   },
   async move(_state, guestIds, tableId) {
     await dbCall(supabase.rpc('move_guests_to_table', { p_guest_ids: guestIds, p_table_id: tableId }));
@@ -108,7 +121,7 @@ async function loadAll() {
     const active = invitations.flatMap((invitation) => (invitation.members || []).map((member) => member.guest_id));
     state = T.pruneAssignments(state, active);
   }
-  const people = T.buildPeople(invitations, state.assignments);
+  const people = T.buildPeople(invitations, state.assignments, await adapter.closeFamilyIds());
   return { state, people };
 }
 
@@ -116,7 +129,7 @@ function publicState({ state, people }) {
   const known = new Set(people.map((person) => person.id));
   const tables = state.tables.map((table) => {
     const guests = state.assignments.filter((row) => row.table_id === table.id && known.has(row.guest_id)).map((row) => row.guest_id);
-    return { ...table, seated: guests.length, guests };
+    return { ...table, label: T.sectionLabel(table.category, table.side), seated: guests.length, guests };
   });
   const toSeat = people.filter((person) => person.seatable && (person.table_id != null || !T.isDeclined(person)));
   const seated = toSeat.filter((person) => person.table_id != null).length;
@@ -207,10 +220,10 @@ async function doReset(body) {
 async function doPatch(body) {
   const id = parseTableId(body.id);
   if (id === null) throw new T.TableError('INVALID', 'Mesa no válida.');
-  const patch = T.validateTablePatch(body);
   const current = await loadAll();
   const table = current.state.tables.find((row) => row.id === id);
   if (!table) throw new T.TableError('NOT_FOUND', 'La mesa no existe.');
+  const patch = T.validateTablePatch(body, table);
   if (patch.capacity !== undefined) {
     const seated = current.state.assignments.filter((row) => row.table_id === id).length;
     if (patch.capacity < seated) {

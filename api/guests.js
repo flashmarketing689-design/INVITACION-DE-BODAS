@@ -83,10 +83,12 @@ function normalizeGuestInput(payload) {
     categoria,
     cantidad_personas: cantidad,
     notas: String(payload.notas || '').trim().slice(0, 500) || null,
+    // Familia cercana: solo tiene sentido para la categoría "familiares".
+    cercana: categoria === 'familiares' && payload.cercana === true,
   };
 }
 
-const PUBLIC_COLUMNS = 'id, nombre, telefono, pertenece, categoria, cantidad_personas, notas, token, invitacion_enviada, fecha_invitacion_enviada, estado, estado_rsvp, fecha_rsvp, created_at, updated_at';
+const PUBLIC_COLUMNS = 'id, nombre, telefono, pertenece, categoria, cercana, cantidad_personas, notas, token, invitacion_enviada, fecha_invitacion_enviada, estado, estado_rsvp, fecha_rsvp, created_at, updated_at';
 
 function baseUrl(req) {
   const proto = req.headers['x-forwarded-proto'] || 'http';
@@ -363,6 +365,8 @@ module.exports = async function handler(req, res) {
     if (has('telefono')) changes.telefono = clean.telefono;
     if (has('pertenece')) changes.pertenece = clean.pertenece;
     if (has('categoria')) changes.categoria = clean.categoria;
+    // La marca depende de la categoría: se recalcula siempre que se envía la categoría.
+    if (has('categoria')) changes.cercana = clean.cercana;
     if (has('cantidad_personas', 'cantidad')) changes.cantidad_personas = clean.cantidad_personas;
     if (has('notas')) changes.notas = clean.notas;
     if (supabaseConfigured && supabase) {
