@@ -6,10 +6,13 @@
  * POST ?action=assign       → { role_id, guest_ids } da el papel a varias personas
  * POST ?action=unassign     → { role_id, guest_id } le quita el papel a una persona
  * POST ?action=reorder      → { role_ids } ordena los papeles
+ * POST ?action=add-member   → { nombre, pertenece } agrega a una persona sin invitación (los novios…)
+ * POST ?action=remove-member → { id } la quita del cortejo (id positivo de la persona)
  * PATCH                     → { id, name?, description? } edita un papel
  * DELETE                    → { id } elimina un papel (y sus asignaciones; las personas no se borran)
  *
  * Una persona puede tener varios papeles. Los papeles se pueden crear y renombrar libremente.
+ * Las personas sin invitación no son invitados: en las asignaciones se identifican con un id negativo.
  */
 
 const fs = require('fs');
@@ -21,6 +24,7 @@ const T = require('../lib/tables');
 const R = require('../lib/roles');
 const { listInvitations } = require('./invitations');
 const tablesApi = require('./tables');
+const kinshipsApi = require('./kinships');
 
 const LOCAL_FILE = path.join(DATA_DIR, 'roles_local.json');
 
@@ -35,7 +39,7 @@ function parseBody(body) {
 function readLocalState() {
   try {
     const parsed = JSON.parse(fs.readFileSync(LOCAL_FILE, 'utf8'));
-    if (parsed && Array.isArray(parsed.roles) && Array.isArray(parsed.assignments)) return parsed;
+    if (parsed && Array.isArray(parsed.roles) && Array.isArray(parsed.assignments)) return { members: [], ...parsed };
   } catch { /* primera vez: se usan los papeles iniciales */ }
   return R.defaultRoleState();
 }
@@ -52,6 +56,8 @@ const localStore = {
   async assign(state, roleId, guestIds) { writeLocalState(R.assign(state, roleId, guestIds)); },
   async unassign(state, roleId, guestId) { writeLocalState(R.unassign(state, roleId, guestId)); },
   async reorder(state, ids) { writeLocalState(R.reorder(state, ids)); },
+  async addMember(state, input) { writeLocalState(R.addMember(state, input)); },
+  async removeMember(state, id) { writeLocalState(R.removeMember(state, id)); },
 };
 
 /* ─── Supabase ─── */
@@ -72,11 +78,39 @@ async function dbCall(promise) {
   return data;
 }
 
+// Las tablas de personas sin invitación llegan con la migración 015: sin ella, no hay personas.
+async function optionalRows(promise) {
+  const { data, error } = await promise;
+  if (error) {
+    if (['42P01', 'PGRST205'].includes(error.code)) return [];
+    throw translateDbError(error);
+  }
+  return data || [];
+}
+
+// Agregar o quitar personas sin invitación necesita la migración 015.
+async function memberCall(promise) {
+  const { data, error } = await promise;
+  if (error) {
+    if (['42P01', 'PGRST205'].includes(error.code)) {
+      throw new R.RoleError('MIGRATION', 'Primero ejecuta la migración 015_kinships_and_party_members.sql en Supabase para agregar personas sin invitación.');
+    }
+    throw translateDbError(error);
+  }
+  return data;
+}
+
 const supabaseStore = {
   async load() {
     const roles = await dbCall(supabase.from('wedding_roles').select('id, name, description, sort_order').order('sort_order').order('id'));
     const assignments = await dbCall(supabase.from('guest_roles').select('guest_id, role_id').limit(5000));
-    return { roles: roles || [], assignments: assignments || [], next_id: 0 };
+    const members = await optionalRows(supabase.from('party_members').select('id, nombre, pertenece').order('id').limit(200));
+    const memberRoles = await optionalRows(supabase.from('party_member_roles').select('member_id, role_id').limit(5000));
+    return {
+      roles: roles || [],
+      assignments: [...(assignments || []), ...memberRoles.map((row) => ({ guest_id: -row.member_id, role_id: row.role_id }))],
+      members, next_id: 0,
+    };
   },
   async create(state, input) {
     const clean = R.validateRoleInput(input);
@@ -94,11 +128,28 @@ const supabaseStore = {
     if (!rows?.length) throw new R.RoleError('NOT_FOUND', 'El papel no existe.');
   },
   async assign(_state, roleId, guestIds) {
-    await dbCall(supabase.from('guest_roles')
-      .upsert(guestIds.map((guest_id) => ({ guest_id, role_id: roleId })), { onConflict: 'guest_id,role_id', ignoreDuplicates: true }));
+    const guests = guestIds.filter((id) => id > 0), members = guestIds.filter((id) => id < 0).map((id) => -id);
+    if (guests.length) {
+      await dbCall(supabase.from('guest_roles')
+        .upsert(guests.map((guest_id) => ({ guest_id, role_id: roleId })), { onConflict: 'guest_id,role_id', ignoreDuplicates: true }));
+    }
+    if (members.length) {
+      await dbCall(supabase.from('party_member_roles')
+        .upsert(members.map((member_id) => ({ member_id, role_id: roleId })), { onConflict: 'member_id,role_id', ignoreDuplicates: true }));
+    }
   },
   async unassign(_state, roleId, guestId) {
-    await dbCall(supabase.from('guest_roles').delete().eq('role_id', roleId).eq('guest_id', guestId));
+    if (guestId < 0) await dbCall(supabase.from('party_member_roles').delete().eq('role_id', roleId).eq('member_id', -guestId));
+    else await dbCall(supabase.from('guest_roles').delete().eq('role_id', roleId).eq('guest_id', guestId));
+  },
+  async addMember(state, input) {
+    const clean = R.validateMemberInput(input);
+    if (state.members.length >= R.MAX_MEMBERS) throw new R.RoleError('INVALID', `Se pueden agregar hasta ${R.MAX_MEMBERS} personas sin invitación.`);
+    await memberCall(supabase.from('party_members').insert(clean));
+  },
+  async removeMember(_state, id) {
+    const rows = await memberCall(supabase.from('party_members').delete().eq('id', id).select('id'));
+    if (!rows?.length) throw new R.RoleError('NOT_FOUND', 'La persona no está en el cortejo.');
   },
   async reorder(state, ids) {
     // Los papeles que no se mencionan conservan su lugar, al final.
@@ -116,16 +167,28 @@ async function loadAll() {
   const invitations = await listInvitations();
   let family = new Map();
   try { family = await tablesApi.familyInfo(); } catch { /* la etiqueta de parentesco es opcional */ }
-  const all = T.buildPeople(invitations, [], family);
+  const all = T.buildPeople(invitations, [], family, await kinshipsApi.definitions());
   if (adapter === localStore) state = R.pruneAssignments(state, all.map((person) => person.id));
-  const people = all.map((person) => ({
+  const guests = all.map((person) => ({
     id: person.id, nombre: person.nombre, pertenece: person.pertenece, categoria: person.categoria,
     estado_rsvp: person.estado_rsvp, parentesco_label: person.parentesco_label, invitation_name: person.invitation_name,
   }));
-  return { state, people };
+  // Las personas sin invitación (los novios…) no son invitados: id negativo, sin respuesta ni categoría.
+  const members = (state.members || []).map((member) => ({
+    id: -member.id, member_id: member.id, nombre: member.nombre, pertenece: member.pertenece, categoria: null,
+    estado_rsvp: null, parentesco_label: null, invitation_name: null, sin_invitacion: true,
+  }));
+  return { state, people: [...members, ...guests] };
 }
 
 const statusFor = (error) => ({ INVALID: 400, NOT_FOUND: 404, DUPLICATE: 409, MIGRATION: 503 })[error.code] || 500;
+
+// Id de invitado (positivo) o de persona sin invitación (negativo).
+function parsePersonId(value) {
+  const id = Number(value);
+  if (!Number.isSafeInteger(id) || id === 0) throw new R.RoleError('INVALID', 'Elige una persona válida.');
+  return id;
+}
 
 function parseId(value, label = 'papel') {
   const id = Number(value);
@@ -142,7 +205,7 @@ async function act(body, action) {
     case 'assign': {
       const roleId = parseId(body.role_id);
       const ids = Array.isArray(body.guest_ids) ? body.guest_ids.map(Number) : [];
-      if (!ids.length || ids.length > R.MAX_GUESTS_PER_REQUEST || new Set(ids).size !== ids.length || ids.some((id) => !Number.isSafeInteger(id) || id <= 0)) {
+      if (!ids.length || ids.length > R.MAX_GUESTS_PER_REQUEST || new Set(ids).size !== ids.length || ids.some((id) => !Number.isSafeInteger(id) || id === 0)) {
         throw new R.RoleError('INVALID', 'Selecciona entre 1 y 100 personas válidas.');
       }
       if (ids.some((id) => !known.has(id))) throw new R.RoleError('INVALID', 'Alguna persona ya no está en la lista. Recarga la página.');
@@ -150,7 +213,9 @@ async function act(body, action) {
       await adapter.assign(state, roleId, ids);
       return { assigned: ids.length };
     }
-    case 'unassign': await adapter.unassign(state, parseId(body.role_id), parseId(body.guest_id, 'invitado')); return { unassigned: true };
+    case 'unassign': await adapter.unassign(state, parseId(body.role_id), parsePersonId(body.guest_id)); return { unassigned: true };
+    case 'add-member': await adapter.addMember(state, body); return { added: true };
+    case 'remove-member': await adapter.removeMember(state, parseId(body.id, 'persona')); return { removed: true };
     case 'reorder': {
       const ids = Array.isArray(body.role_ids) ? body.role_ids.map(Number) : [];
       if (!ids.length || ids.some((id) => !Number.isSafeInteger(id))) throw new R.RoleError('INVALID', 'La lista de papeles no es válida.');

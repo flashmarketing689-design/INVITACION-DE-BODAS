@@ -242,7 +242,7 @@ test('madre, padre y hermanos: se guardan, implican familia cercana y se sientan
   assert.deepEqual([madre.parentesco, madre.cercana], ['madre', true], 'el parentesco implica familia cercana');
   const padre = await addGuest(cookie, 'Pedro Novio', 'familiares', 'novio', false, 'padre');
   const hermana = await addGuest(cookie, 'Hilda Novia', 'familiares', 'novia', false, 'hermano');
-  const invalido = await addGuest(cookie, 'Falso Parentesco', 'familiares', 'novia', false, 'tio');
+  const invalido = await addGuest(cookie, 'Falso Parentesco', 'familiares', 'novia', false, 'Tío!');
   assert.deepEqual([invalido.parentesco, invalido.cercana], [null, false]);
   const amigo = await addGuest(cookie, 'Amigo Falso', 'amigos', 'novia', false, 'madre');
   assert.deepEqual([amigo.parentesco, amigo.cercana], [null, false], 'solo los familiares tienen parentesco');

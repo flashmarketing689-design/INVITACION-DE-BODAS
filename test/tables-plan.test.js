@@ -251,7 +251,7 @@ test('el parentesco de los familiares: etiqueta por lado, implica familia cercan
   assert.equal(byId(1).cercana, false);
   assert.equal(byId(1).parentesco_label, null);
   assert.equal(byId(7).parentesco, null, 'solo los familiares tienen parentesco');
-  assert.deepEqual([byId(6).parentesco_order, byId(3).parentesco_order, byId(1).parentesco_order], [0, 1, 2]);
+  assert.deepEqual([byId(6).parentesco_order, byId(3).parentesco_order, byId(1).parentesco_order], [0, 2, 999], 'madre, padre y hermano en el orden de la lista; sin parentesco al final');
   assert.equal(byId(3).section_key, 'familia_cercana|novia');
   assert.equal(byId(5).section_key, 'familia_cercana|novio');
   assert.equal(byId(1).section_key, 'familiares|novia');
@@ -262,4 +262,15 @@ test('el parentesco de los familiares: etiqueta por lado, implica familia cercan
   assert.equal(tables.kinshipLabel('tio', 'novia'), null);
   // La forma anterior (un conjunto de ids de familia cercana) sigue funcionando.
   assert.equal(tables.buildPeople(invitations, [], new Set([1]))[0].cercana, true);
+});
+
+test('los parentescos propios se etiquetan por lado y se ordenan según la lista', () => {
+  const member = (guest_id, nombre, pertenece) => ({ guest_id, nombre, categoria: 'familiares', pertenece, estado_rsvp: null, cantidad_personas: 1 });
+  const invitations = [{ id: 'a', display_name: 'Abuelos', group_type: 'couple', members: [member(1, 'Abuelo Uno', 'novio'), member(2, 'Hermana Dos', 'novia')] }];
+  const kinships = [{ key: 'abuelo', name: 'Abuelo(a)', sort_order: 1 }, { key: 'hermano', name: 'Hermano(a)', sort_order: 2 }];
+  const people = tables.buildPeople(invitations, [], new Map([[1, { parentesco: 'abuelo' }], [2, { parentesco: 'hermano' }]]), kinships);
+  assert.deepEqual(people.map((p) => [p.parentesco_label, p.parentesco_order]), [['Abuelo(a) del novio', 0], ['Hermano(a) de la novia', 1]]);
+  // Un parentesco que ya no existe en la lista se ignora (la persona sigue siendo familia cercana si estaba marcada).
+  const quitado = tables.buildPeople(invitations, [], new Map([[1, { parentesco: 'madre', cercana: true }]]), kinships);
+  assert.deepEqual([quitado[0].parentesco, quitado[0].cercana, quitado[0].parentesco_label], [null, true, null]);
 });

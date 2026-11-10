@@ -85,6 +85,7 @@ body.busy main{opacity:.7;pointer-events:none}
 <header class="top"><div class="brand"><h1>Cortejo y participantes</h1><small>Boda Starlin &amp; Reneisy · 21 Nov 2026</small></div>
   <nav class="nav" aria-label="Acciones del cortejo">
     <button class="btn primary" id="new-role-btn" type="button">Nuevo papel</button>
+    <button class="btn" id="new-member-btn" type="button">Persona sin invitación</button>
     <button class="btn" id="print-btn" type="button">Imprimir</button>
     <button class="btn" id="logout" type="button">Salir</button>
   </nav>
@@ -122,6 +123,16 @@ body.busy main{opacity:.7;pointer-events:none}
     <label>Qué hace (opcional)<textarea id="role-desc" maxlength="200" placeholder="Ej. Reparten pétalos antes de que entre la novia."></textarea></label>
     <p class="dialog-error" id="role-error" role="alert"></p>
     <div class="modal-actions"><button class="btn warn" id="role-delete" type="button" hidden>Eliminar papel</button><div><button class="btn" id="role-cancel" type="button">Cancelar</button><button class="btn primary" id="role-save" type="submit">Guardar</button></div></div>
+  </form>
+</div>
+<div class="modal" id="member-modal" role="dialog" aria-modal="true" aria-labelledby="member-title">
+  <form class="dialog" id="member-form">
+    <h2 id="member-title">Persona sin invitación</h2>
+    <p>Para quien participa pero no es invitado (los novios, el oficiante…): no tiene enlace ni QR, y no cuenta en las 150 personas ni en las mesas.</p>
+    <label>Nombre<input type="text" id="member-name" maxlength="120" required placeholder="Ej. Padre Juan Pérez"></label>
+    <label>Lado<select id="member-side" class="assign" style="max-width:none"><option value="novia">De la novia</option><option value="novio">Del novio</option></select></label>
+    <p class="dialog-error" id="member-error" role="alert"></p>
+    <div class="modal-actions"><span></span><div><button class="btn" id="member-cancel" type="button">Cancelar</button><button class="btn primary" id="member-save" type="submit">Agregar</button></div></div>
   </form>
 </div>
 <div class="auth show" id="auth"><form class="auth-box" id="login-form"><h2>Acceso administrativo</h2><p>Inicia sesión con la clave de administración para organizar el cortejo.</p><input id="password" type="password" autocomplete="current-password" placeholder="Clave de administración" aria-label="Clave de administración" required><button class="btn primary" type="submit" style="width:100%;margin-top:.6rem">Entrar</button><div class="error" id="login-error"></div></form></div>
@@ -169,14 +180,16 @@ function notify(message) {
 }
 const setState = (next) => { state = { roles: next.roles, people: next.people, summary: next.summary }; };
 const meta = (person) => [person.pertenece === 'novia' ? 'Lado de la novia' : person.pertenece === 'novio' ? 'Lado del novio' : '',
-  person.parentesco_label || CATEGORY[person.categoria] || ''].filter(Boolean).join(' · ');
-const rsvpLabel = (person) => RSVP[person.estado_rsvp] || 'Sin responder';
+  person.sin_invitacion ? 'Sin invitación' : (person.parentesco_label || CATEGORY[person.categoria] || '')].filter(Boolean).join(' · ');
+const rsvpLabel = (person) => (person.sin_invitacion ? '' : (RSVP[person.estado_rsvp] || 'Sin responder'));
+const rsvpText = (person) => (person.sin_invitacion ? '' : ` · ${rsvpLabel(person)}`);
+const dot = (person) => (person.sin_invitacion ? '' : `<i class="dot ${esc(person.estado_rsvp || 'pendiente')}"></i>`);
 
 /* ───── Render ───── */
 function personRow(person, roleId, c) {
   const declined = person.estado_rsvp === 'no_asiste';
-  return `<li class="person${declined ? ' declined' : ''}" style="--c:${c[0]}"><span class="who"><span class="name"><i class="dot ${esc(person.estado_rsvp || 'pendiente')}"></i>${esc(person.nombre)}</span>
-    <span class="meta">${esc(meta(person))} · ${esc(rsvpLabel(person))}</span></span>
+  return `<li class="person${declined ? ' declined' : ''}" style="--c:${c[0]}"><span class="who"><span class="name">${dot(person)}${esc(person.nombre)}</span>
+    <span class="meta">${esc(meta(person))}${esc(rsvpText(person))}</span></span>
     <button class="x-btn" type="button" data-remove="${person.id}" data-role="${roleId}" aria-label="Quitar a ${esc(person.nombre)} de ${esc(roleById(roleId)?.name || '')}" title="Quitar">×</button></li>`;
 }
 function assignSelect(person) {
@@ -213,13 +226,13 @@ function render() {
       <button class="btn small add-btn" type="button" data-add="${role.id}">Agregar personas</button></article>`;
   }).join('') || '<p class="empty">Todavía no hay papeles. Crea el primero con "Nuevo papel".</p>';
 
-  const withRole = state.people.filter((p) => p.role_ids.length)
+  const withRole = state.people.filter((p) => p.role_ids.length || p.sin_invitacion)
     .sort((a, b) => (roleIndex(a.role_ids[0]) - roleIndex(b.role_ids[0])) || byName(a, b));
   $('people-body').innerHTML = withRole.length ? withRole.map((p) => `<tr>
     <td class="n">${esc(p.nombre)}<small>${esc(meta(p))}</small></td>
-    <td><i class="dot ${esc(p.estado_rsvp || 'pendiente')}"></i>${esc(rsvpLabel(p))}</td>
+    <td>${p.sin_invitacion ? '—' : `${dot(p)}${esc(rsvpLabel(p))}`}</td>
     <td><div class="chips">${p.role_ids.map((id) => { const c = color(roleIndex(id)); return `<span class="chip" style="--c:${c[0]};--c-bg:${c[1]}">${esc(roleById(id)?.name || '')}</span>`; }).join('')}</div></td>
-    <td class="add-btn">${assignSelect(p)}</td></tr>`).join('')
+    <td class="add-btn">${assignSelect(p)}${p.sin_invitacion ? ` <button class="btn small warn" type="button" data-remove-member="${p.member_id}" aria-label="Quitar a ${esc(p.nombre)} del cortejo">Quitar</button>` : ''}</td></tr>`).join('')
     : '<tr><td colspan="4"><p class="empty" style="margin:.3rem">Todavía nadie tiene un papel.</p></td></tr>';
 }
 
@@ -259,8 +272,9 @@ function renderPicker() {
   const query = norm($('add-search').value);
   const chosen = new Set([...document.querySelectorAll('#add-picker input:checked')].map((input) => Number(input.value)));
   const candidates = state.people.filter((p) => !role.guest_ids.includes(p.id)).filter((p) => !query || norm(p.nombre).includes(query));
-  const groups = [['Participantes de la boda', candidates.filter((p) => p.categoria === 'participantes')],
-    ['Otros invitados', candidates.filter((p) => p.categoria !== 'participantes')]];
+  const groups = [['Sin invitación', candidates.filter((p) => p.sin_invitacion)],
+    ['Participantes de la boda', candidates.filter((p) => p.categoria === 'participantes')],
+    ['Otros invitados', candidates.filter((p) => p.categoria !== 'participantes' && !p.sin_invitacion)]];
   $('add-picker').innerHTML = groups.filter(([, list]) => list.length).map(([title, list]) => `<h4>${title}</h4>${list.sort(byName).map((p) =>
     `<label class="option"><input type="checkbox" value="${p.id}" ${chosen.has(p.id) ? 'checked' : ''}><span>${esc(p.nombre)}<small>${esc(meta(p))}${p.role_ids.length ? ' · ya es ' + esc(p.role_ids.map((id) => roleById(id)?.name).join(', ')) : ''}</small></span></label>`).join('')}`).join('')
     || '<p class="empty">No hay nadie más para agregar con ese nombre.</p>';
@@ -328,6 +342,22 @@ $('role-delete').addEventListener('click', () => {
   run(async () => { setState(await api('/api/cortejo', { method: 'DELETE', body: JSON.stringify({ id }) })); notify(`Papel «${role.name}» eliminado.`); });
 });
 $('new-role-btn').addEventListener('click', () => openRole(null));
+
+/* ───── Personas sin invitación ───── */
+function openMember() { $('member-name').value = ''; $('member-error').textContent = ''; $('member-modal').classList.add('show'); $('member-name').focus(); }
+function closeMember() { $('member-modal').classList.remove('show'); }
+$('new-member-btn').addEventListener('click', openMember);
+$('member-cancel').addEventListener('click', closeMember);
+$('member-modal').addEventListener('click', (event) => { if (event.target === $('member-modal')) closeMember(); });
+$('member-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  return withBusy($('member-save'), async () => {
+    try {
+      setState(await post('add-member', { nombre: $('member-name').value, pertenece: $('member-side').value }));
+      closeMember(); render(); notify('Persona agregada. Ya puedes darle un papel.');
+    } catch (error) { if (error.status !== 401) $('member-error').textContent = error.message; }
+  });
+});
 $('print-btn').addEventListener('click', () => window.print());
 
 /* ───── Eventos ───── */
@@ -336,7 +366,14 @@ document.addEventListener('click', (event) => {
   const edit = event.target.closest('[data-edit-role]'); if (edit) { openRole(Number(edit.dataset.editRole)); return; }
   const remove = event.target.closest('[data-remove]'); if (remove) { removeFrom(Number(remove.dataset.role), Number(remove.dataset.remove)); return; }
   const up = event.target.closest('[data-up]'); if (up) { moveRole(Number(up.dataset.up), -1); return; }
-  const down = event.target.closest('[data-down]'); if (down) { moveRole(Number(down.dataset.down), 1); }
+  const down = event.target.closest('[data-down]'); if (down) { moveRole(Number(down.dataset.down), 1); return; }
+  const removeMember = event.target.closest('[data-remove-member]');
+  if (removeMember) {
+    const person = state.people.find((p) => p.member_id === Number(removeMember.dataset.removeMember));
+    if (person && confirm(`¿Quitar a ${person.nombre} del cortejo? Dejará de tener sus papeles.`)) {
+      run(async () => { setState(await post('remove-member', { id: person.member_id })); notify(`${person.nombre} ya no está en el cortejo.`); });
+    }
+  }
 });
 document.addEventListener('change', (event) => {
   const select = event.target.closest('select[data-assign]');
@@ -346,7 +383,7 @@ document.addEventListener('change', (event) => {
 });
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
-  if ($('add-modal').classList.contains('show')) closeAdd(); else if ($('role-modal').classList.contains('show')) closeRole();
+  if ($('add-modal').classList.contains('show')) closeAdd(); else if ($('role-modal').classList.contains('show')) closeRole(); else if ($('member-modal').classList.contains('show')) closeMember();
 });
 
 /* ───── Sesión y actualización ───── */
@@ -364,7 +401,7 @@ $('logout').addEventListener('click', async () => { try { await api('/api/guests
 
 let refreshing = false;
 async function refresh() {
-  if (refreshing || busy || document.hidden || $('auth').classList.contains('show') || $('add-modal').classList.contains('show') || $('role-modal').classList.contains('show')) return;
+  if (refreshing || busy || document.hidden || $('auth').classList.contains('show') || $('add-modal').classList.contains('show') || $('role-modal').classList.contains('show') || $('member-modal').classList.contains('show')) return;
   refreshing = true;
   try { setState(await api('/api/cortejo')); render(); } catch { /* se reintenta al volver a la pestaña */ } finally { refreshing = false; }
 }
