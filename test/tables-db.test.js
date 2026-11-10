@@ -141,6 +141,18 @@ test('SQL: las secciones de las mesas y la marca de familia cercana se validan',
   await db.query("update public.wedding_tables set category = 'familia_cercana', side = 'novia', is_main = true where id = 1");
 });
 
+test('SQL: el parentesco solo vale para familiares cercanos y se valida', async () => {
+  const { rows: [madre] } = await db.query("insert into public.guests (nombre, pertenece, categoria) values ('Madre Novia', 'novia', 'familiares') returning id, parentesco");
+  assert.equal(madre.parentesco, null, 'por defecto nadie tiene parentesco');
+  await assert.rejects(db.query("update public.guests set parentesco = 'madre' where id = $1", [madre.id]), { code: '23514' }, 'el parentesco exige familia cercana');
+  await db.query("update public.guests set parentesco = 'madre', cercana = true where id = $1", [madre.id]);
+  for (const kin of ['padre', 'hermano']) await db.query('update public.guests set parentesco = $2 where id = $1', [madre.id, kin]);
+  await assert.rejects(db.query("update public.guests set parentesco = 'tio' where id = $1", [madre.id]), { code: '23514' });
+  await assert.rejects(db.query("update public.guests set cercana = false where id = $1", [madre.id]), { code: '23514' }, 'quien tiene parentesco sigue siendo cercano');
+  await assert.rejects(db.query("update public.guests set categoria = 'amigos' where id = $1", [madre.id]), { code: '23514' });
+  await db.query("update public.guests set parentesco = null, cercana = false, categoria = 'amigos' where id = $1", [madre.id]);
+});
+
 test('SQL: repetir 012 no pisa las secciones cambiadas desde el panel', async () => {
   await db.query("update public.wedding_tables set category = 'iglesia', side = null, is_main = false where id = 3");
   await db.exec('reset role;');

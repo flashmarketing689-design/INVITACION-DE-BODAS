@@ -23,10 +23,11 @@ Frontend estático + funciones serverless en `api/` (Vercel) + Supabase como bas
 | `ADMIN_SESSION_SECRET` | recomendada | ≥ 32 caracteres; si falta se usa la service key |
 
 ## Base de datos
-Ejecuta en el SQL Editor de Supabase, en orden, los archivos de `migrations/` (001 → 012).
+Ejecuta en el SQL Editor de Supabase, en orden, los archivos de `migrations/` (001 → 013).
 La 010 corrige la separación de grupos con personas eliminadas, protege las
 confirmaciones de quienes ya entraron y sincroniza el teléfono. La 011 crea el módulo de mesas y la 012 añade las secciones de las mesas y la marca de familia cercana
-(ejecútala antes de desplegar esta versión).
+(ejecútala antes de desplegar esa versión) y la 013 añade el parentesco de los familiares
+(ejecútala antes de desplegar esa versión).
 
 ## Mesas
 Son 12 mesas de 10 lugares (el límite lo garantiza la base de datos). Cada mesa tiene una sección:
@@ -42,8 +43,11 @@ Son 12 mesas de 10 lugares (el límite lo garantiza la base de datos). Cada mesa
 | 10 | Amigos de la novia |
 | 11 y 12 | Amigos (los compañeros se sientan aquí) |
 
-La sección de cada mesa se cambia con el lápiz de la mesa. **Familia cercana** se marca con una casilla
-en la ficha del invitado (solo aparece para la categoría "Familiares").
+La sección de cada mesa se cambia con el lápiz de la mesa. En la ficha de un invitado de la categoría
+"Familiares" se puede indicar el **parentesco** (madre, padre o hermano/a; el lado sale de su lista: "Madre de la novia",
+"Padre del novio"…). Quien tiene parentesco cuenta como **familia cercana**; para otros familiares cercanos
+(abuelos, tíos…) hay una casilla "Familia cercana". En la lista de "Sin mesa" la familia cercana aparece
+con madre y padre primero y luego los hermanos.
 
 La organización automática solo sienta a quienes no tienen mesa y mantiene juntas a las parejas y
 familias (una invitación = una mesa, salvo que no quepan). Cada invitación va a la mesa de su sección

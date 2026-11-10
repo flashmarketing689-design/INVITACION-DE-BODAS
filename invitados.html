@@ -222,7 +222,7 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
 .m-group input:focus,.m-group select:focus,.m-group textarea:focus{border-color:var(--green);}
 .m-group textarea{resize:vertical;min-height:70px;}
 .m-group.error input,.m-group.error select{border-color:var(--red);}
-.m-check{display:flex!important;align-items:flex-start;gap:.55rem;margin:.7rem 0 0!important;text-transform:none!important;letter-spacing:0!important;font-size:.78rem!important;color:var(--text)!important;cursor:pointer}.m-check[hidden]{display:none!important}.m-check input{width:18px;height:18px;margin-top:.1rem;accent-color:var(--green)}.m-check small{color:var(--text-soft);font-size:.68rem}
+.m-check{display:flex!important;align-items:flex-start;gap:.55rem;margin:.7rem 0 0!important;text-transform:none!important;letter-spacing:0!important;font-size:.78rem!important;color:var(--text)!important;cursor:pointer}.m-check[hidden]{display:none!important}.m-kin{margin-top:.8rem}.m-kin[hidden]{display:none}.m-kin small{display:block;margin-top:.3rem;font-size:.68rem;color:var(--text-soft)}.m-check input{width:18px;height:18px;margin-top:.1rem;accent-color:var(--green)}.m-check small{color:var(--text-soft);font-size:.68rem}
 .m-err{font-size:.66rem;color:var(--red);margin-top:.3rem;display:none;}
 .m-group.error .m-err{display:block;}
 .m-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
@@ -482,6 +482,16 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
           <option value="participantes">Participantes</option>
         </select>
         <div class="m-err">Selecciona una categoría.</div>
+        <div class="m-kin" id="mg-parentesco" hidden>
+          <label for="f-parentesco">Parentesco</label>
+          <select id="f-parentesco">
+            <option value="">Otro familiar</option>
+            <option value="madre">Madre</option>
+            <option value="padre">Padre</option>
+            <option value="hermano">Hermano(a)</option>
+          </select>
+          <small id="f-parentesco-hint"></small>
+        </div>
         <label class="m-check" id="mg-cercana" hidden><input type="checkbox" id="f-cercana"> <span>Familia cercana <small>(se sienta en las mesas 1 y 2)</small></span></label>
       </div>
     </div>
@@ -1139,7 +1149,7 @@ function createCard(g, cat){
         <div class="card-name">${esc(g.nombre)}</div>
         <div class="card-badges">
           <span class="cat-badge" style="background:${cat.bg};color:${cat.color}">${esc(cat.label)}</span>
-          ${g.cercana ? '<span class="cat-badge" style="background:#F6EFDC;color:#7A5F10">Familia cercana</span>' : ''}
+          ${g.parentesco ? `<span class="cat-badge" style="background:#F6EFDC;color:#7A5F10">${esc(kinLabel(g.parentesco, g.pertenece))}</span>` : g.cercana ? '<span class="cat-badge" style="background:#F6EFDC;color:#7A5F10">Familia cercana</span>' : ''}
           <span class="owner-badge">
             <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
             ${g.pertenece==='novio'?'Novio':'Novia'}
@@ -1360,8 +1370,24 @@ const fNombre    = document.getElementById('f-nombre');
 const fPertenece = document.getElementById('f-pertenece');
 const fCategoria = document.getElementById('f-categoria');
 const fCercana   = document.getElementById('f-cercana');
-const syncCercana = ()=>{ const family = fCategoria.value === 'familiares'; document.getElementById('mg-cercana').hidden = !family; if(!family) fCercana.checked = false; };
+const fParentesco = document.getElementById('f-parentesco');
+const KIN = { madre:'Madre', padre:'Padre', hermano:'Hermano(a)' };
+const kinLabel = (kin, pertenece)=> KIN[kin] ? `${KIN[kin]} ${pertenece==='novia' ? 'de la novia' : pertenece==='novio' ? 'del novio' : ''}`.trim() : '';
+// El parentesco y la familia cercana solo aplican a "Familiares"; quien tiene parentesco ya es familia cercana.
+const syncCercana = ()=>{
+  const family = fCategoria.value === 'familiares';
+  document.getElementById('mg-cercana').hidden = !family;
+  document.getElementById('mg-parentesco').hidden = !family;
+  if(!family){ fCercana.checked = false; fParentesco.value = ''; }
+  const pertenece = document.getElementById('f-pertenece').value;
+  const side = pertenece === 'novia' ? 'la novia' : pertenece === 'novio' ? 'el novio' : '';
+  document.getElementById('f-parentesco-hint').textContent = fParentesco.value
+    ? `Cuenta como familia cercana: se sienta con la familia cercana de ${side || 'su lado'}.` : '';
+  if(fParentesco.value){ fCercana.checked = true; fCercana.disabled = true; } else { fCercana.disabled = false; }
+};
 fCategoria.addEventListener('change', syncCercana);
+document.getElementById('f-pertenece').addEventListener('change', syncCercana);
+fParentesco.addEventListener('change', syncCercana);
 const fCantidad  = document.getElementById('f-cantidad');
 const fTelefono  = document.getElementById('f-telefono');
 const fNotas     = document.getElementById('f-notas');
@@ -1376,6 +1402,7 @@ function openModal(id){
   fPertenece.value = g ? g.pertenece : '';
   fCategoria.value = g ? g.categoria : '';
   fCercana.checked = Boolean(g && g.cercana);
+  fParentesco.value = (g && g.parentesco) || '';
   syncCercana();
   fCantidad.value  = g ? g.cantidad_personas  : '1';
   [...fCantidad.options].forEach(option=>{
@@ -1426,7 +1453,8 @@ async function saveGuest(){
     nombre,
     pertenece,
     categoria,
-    cercana: categoria === 'familiares' && fCercana.checked,
+    cercana: categoria === 'familiares' && (fCercana.checked || Boolean(fParentesco.value)),
+    parentesco: categoria === 'familiares' ? fParentesco.value || null : null,
     cantidad_personas: parseInt(cantidad, 10),
     telefono: fTelefono.value.trim(),
     notas: fNotas.value.trim(),
@@ -1532,7 +1560,7 @@ document.getElementById('export-btn').addEventListener('click', ()=>{
     i+1,
     g.nombre,
     g.pertenece==='novio'?'Novio':'Novia',
-    (CATS.find(c=>c.id===g.categoria)?.label||g.categoria) + (g.cercana ? ' (cercana)' : ''),
+    (CATS.find(c=>c.id===g.categoria)?.label||g.categoria) + (g.parentesco ? ` (${kinLabel(g.parentesco, g.pertenece)})` : g.cercana ? ' (cercana)' : ''),
     g.cantidad_personas||1,
     g.telefono,
     g.invitacion_enviada?'Sí':'No',
