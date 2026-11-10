@@ -298,7 +298,7 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
     </div>
     <h1>Gestión de Invitados</h1>
     <p>Starlin &amp; Reneisy · Boda 2026</p>
-    <input type="password" id="pwd-input" placeholder="Contraseña de acceso" autocomplete="current-password" />
+    <input type="password" id="pwd-input" placeholder="Contraseña de acceso" aria-label="Contraseña de acceso" autocomplete="current-password" />
     <button class="login-btn" id="login-btn">Acceder</button>
     <p class="login-error" id="login-error">Contraseña incorrecta. Intenta de nuevo.</p>
   </div>
@@ -328,20 +328,20 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
       <svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 0 0-5 5v3h10V7a5 5 0 0 0-5-5ZM5 10v12h14V10H5Zm7 3a2 2 0 0 1 1 3.73V19h-2v-2.27A2 2 0 0 1 12 13Z"/></svg>
       <span>Recepción</span>
     </a>
-    <button class="btn-sm btn-green" id="add-btn">
+    <button class="btn-sm btn-green" id="add-btn" aria-label="Agregar invitado">
       <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
       <span>Agregar invitado</span>
     </button>
-    <button class="btn-sm btn-outline" id="export-btn">
+    <button class="btn-sm btn-outline" id="export-btn" aria-label="Exportar lista a CSV">
       <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
       <span>Exportar</span>
     </button>
-    <button class="btn-sm btn-outline" id="import-btn" type="button">
+    <button class="btn-sm btn-outline" id="import-btn" type="button" aria-label="Importar lista">
       <svg viewBox="0 0 24 24"><path d="M5 20h14v-2H5v2zM11 16h2V8h4l-5-5-5 5h4v8z"/></svg>
       <span>Importar lista</span>
     </button>
     <input id="import-file-input" type="file" accept=".json,application/json" hidden />
-    <button class="btn-sm btn-outline" id="logout-btn">
+    <button class="btn-sm btn-outline" id="logout-btn" aria-label="Cerrar sesión">
       <svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
       <span>Salir</span>
     </button>
@@ -593,10 +593,11 @@ body{font-family:'Poppins',sans-serif;background:var(--ivory);color:var(--text);
 </div>
 
 <!-- ══ TOAST ══ -->
-<div id="toast"></div>
+<div id="toast" role="status" aria-live="polite"></div>
 
 <script src="/invitation-share.js?v=1"></script>
 <script src="/guest-removal.js?v=1"></script>
+<script src="/admin-common.js?v=1"></script>
 <script>
 (function(){
 'use strict';
@@ -642,6 +643,7 @@ const loginBtn    = document.getElementById('login-btn');
 const loginError  = document.getElementById('login-error');
 
 async function tryLogin(){
+  if (loginBtn.disabled) return;
   loginBtn.disabled = true;
   try {
     const res = await fetch('/api/guests?action=login', {
@@ -671,6 +673,7 @@ async function tryLogin(){
 }
 
 async function enterApp(){
+  pwdInput.value = '';
   loginScreen.classList.add('hide');
   setTimeout(()=>{ loginScreen.style.display='none'; }, 500);
   await loadGuests();
@@ -694,10 +697,17 @@ async function api(path, options = {}){
     headers: options.body ? { 'Content-Type': 'application/json' } : undefined,
     ...options,
   });
-  if (res.status === 401) throw Object.assign(new Error('No autorizado'), { code: 401 });
+  if (res.status === 401) { sessionExpired(); throw Object.assign(new Error('No autorizado'), { code: 401 }); }
   const data = await res.json().catch(()=> ({}));
   if (!res.ok) throw Object.assign(new Error(data.error || 'Error de servidor'), { code: res.status });
   return data;
+}
+
+function sessionExpired(){
+  loginScreen.style.display = 'flex';
+  loginScreen.classList.remove('hide');
+  loginError.textContent = 'Tu sesión venció. Inicia sesión de nuevo para continuar.';
+  loginError.classList.add('show');
 }
 
 async function loadGuests(){
@@ -706,7 +716,7 @@ async function loadGuests(){
     if (!Array.isArray(guests)) guests = [];
     guestsLoadError = null;
   } catch(e) {
-    if (e.code === 401) { location.reload(); return; }
+    if (e.code === 401) return; // sessionExpired() ya mostró el inicio de sesión
     guests = [];
     guestsLoadError = e.message;
     showToast('No se pudo cargar la lista: ' + e.message);
@@ -726,8 +736,10 @@ window.addEventListener('pageshow', event=>{ if(event.persisted) refreshGuestMem
 document.addEventListener('visibilitychange', refreshGuestMembership);
 window.addEventListener('storage', event=>{ if(event.key === GuestRemoval.eventKey) refreshGuestMembership(); });
 
+// El token propio del invitado ya no resuelve invitaciones en producción: solo
+// el de su invitación activa sirve. Sin él no hay enlace que compartir.
 function guestLink(g){
-  return InvitationShare.invitationUrl(g.invitation_token || g.token, location.origin);
+  return g.invitation_token ? InvitationShare.invitationUrl(g.invitation_token, location.origin) : null;
 }
 
 function whatsappMessage(g){
@@ -737,6 +749,8 @@ function whatsappMessage(g){
 function whatsappUrl(g){
   return InvitationShare.whatsappUrl(guestLink(g), g.telefono);
 }
+
+const NO_LINK_MESSAGE = 'Esta persona no tiene una invitación activa. Recarga la lista; si sigue igual, vuelve a crearla.';
 
 /* ============================================================
    MIGRACIÓN localStorage → SUPABASE (una vez, sin duplicar)
@@ -877,7 +891,8 @@ function renderImportPreview(payload, fileName){
     .reduce((sum, guest)=>sum + Math.max(1, Number(guest.cantidad_personas) || 1), 0);
   const incomingConfirmed = rows.filter(guest=>guest.estado_rsvp === 'confirmado')
     .reduce((sum, guest)=>sum + guest.cantidad_personas, 0);
-  const exceedsCapacity = existingConfirmed + incomingConfirmed > 150;
+  const exceedsCapacity = existingConfirmed + incomingConfirmed > MAX_GUESTS;
+  importCapacityBlocked = exceedsCapacity;
   const warning = document.getElementById('import-warning');
   const ackWrap = document.getElementById('import-ack-wrap');
   importAck.checked = false;
@@ -886,7 +901,7 @@ function renderImportPreview(payload, fileName){
     warningMessages.push(`Hay ${matchingNames} nombre(s) del archivo que ya aparecen en el panel. Importar agregará registros nuevos y podría duplicarlos; no actualiza ni combina invitados existentes.`);
   }
   if(exceedsCapacity){
-    warningMessages.push(`La lista contiene ${incomingConfirmed} confirmados y el panel ya tiene ${existingConfirmed}; superarían el cupo de 150. No se puede importar este lote hasta resolverlo.`);
+    warningMessages.push(`La lista contiene ${incomingConfirmed} confirmados y el panel ya tiene ${existingConfirmed}; superarían el cupo de ${MAX_GUESTS}. No se puede importar este lote hasta resolverlo.`);
   }
   if(warningMessages.length){
     warning.textContent = warningMessages.join(' ');
@@ -929,8 +944,7 @@ importInput.addEventListener('change', async ()=>{
 });
 
 importAck.addEventListener('change', ()=>{
-  const capacityWarning = document.getElementById('import-warning').textContent.includes('superarían el cupo de 150');
-  importConfirmBtn.disabled = !importAck.checked || capacityWarning;
+  importConfirmBtn.disabled = !importAck.checked || importCapacityBlocked;
 });
 document.getElementById('import-close-btn').addEventListener('click', closeImportPreview);
 document.getElementById('import-cancel-btn').addEventListener('click', closeImportPreview);
@@ -962,8 +976,7 @@ importConfirmBtn.addEventListener('click', async ()=>{
   } finally {
     importConfirmBtn.textContent = 'Importar invitados';
     if(importOverlay.classList.contains('show')){
-      const capacityWarning = document.getElementById('import-warning').textContent.includes('superarían el cupo de 150');
-      importConfirmBtn.disabled = capacityWarning || (!document.getElementById('import-ack-wrap').hidden && !importAck.checked);
+      importConfirmBtn.disabled = importCapacityBlocked || (!document.getElementById('import-ack-wrap').hidden && !importAck.checked);
     }
   }
 });
@@ -971,7 +984,9 @@ importConfirmBtn.addEventListener('click', async ()=>{
 /* ============================================================
    RENDER
 ============================================================ */
-function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+const esc = AdminCommon.escapeHtml;
+const MAX_GUESTS = 150; // aforo de la boda; el servidor aplica el mismo límite
+let importCapacityBlocked = false;
 
 function getInitials(name){
   const parts = (name||'').trim().split(/\s+/);
@@ -1143,15 +1158,15 @@ function createCard(g, cat){
       ${sentDate ? `<span class="sent-date">${sentDate}</span>` : ''}
     </div>
     <div class="card-actions">
-      <button class="act-btn act-copy" data-id="${g.id}" title="Copiar el mensaje de confirmación con ${shared ? 'el enlace grupal' : 'el enlace individual'}">
+      <button class="act-btn act-copy" data-id="${g.id}" ${guestLink(g)?'':'disabled'} title="Copiar el mensaje de confirmación con ${shared ? 'el enlace grupal' : 'el enlace individual'}">
         <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
         Copiar mensaje
       </button>
-      <button class="act-btn act-link" data-id="${g.id}" title="${shared ? 'Ver el enlace compartido' : 'Ver el enlace individual'}">
+      <button class="act-btn act-link" data-id="${g.id}" ${guestLink(g)?'':'disabled'} title="${shared ? 'Ver el enlace compartido' : 'Ver el enlace individual'}">
         <svg viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>
         Ver enlace
       </button>
-      <button class="act-btn act-wa" data-id="${g.id}" title="Enviar por WhatsApp">
+      <button class="act-btn act-wa" data-id="${g.id}" ${guestLink(g)?'':'disabled'} title="${g.telefono ? 'Enviar por WhatsApp' : 'Sin teléfono: WhatsApp te dejará elegir el contacto'}">
         <svg viewBox="0 0 24 24"><path d="M16.75 13.96c-.25-.13-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.13-.17.25-.64.81-.78.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-1.99-1.23-.74-.66-1.23-1.47-1.38-1.72-.15-.25-.02-.38.11-.51.11-.11.25-.29.37-.43s.17-.25.25-.41c.08-.17.04-.31-.02-.43s-.56-1.34-.76-1.84c-.2-.48-.41-.42-.56-.43h-.48c-.17 0-.43.06-.66.31-.22.25-.86.85-.86 2.07 0 1.22.89 2.4 1.01 2.56.12.17 1.75 2.67 4.23 3.74.59.26 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.67-1.18.21-.58.21-1.07.15-1.18-.07-.1-.23-.16-.48-.29zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg>
         WhatsApp
       </button>
@@ -1169,7 +1184,9 @@ function createCard(g, cat){
   /* Toggle enviado */
   card.querySelector('.sent-toggle').addEventListener('change', e=>{
     e.stopPropagation();
-    toggleSent(g.id, e.target.checked);
+    const toggle = e.target;
+    toggle.disabled = true;
+    toggleSent(g.id, toggle.checked).finally(()=>{ toggle.disabled = false; });
   });
   /* Copiar invitación personalizada */
   card.querySelector('.act-copy').addEventListener('click', async ()=>{
@@ -1216,10 +1233,12 @@ function openLinkModal(id){
   document.getElementById('link-modal-description').textContent = shared
     ? `${g.invitation_name} · ${invitationPeople(g)} personas: ${(g.invitation_members || []).map(member=>member.nombre).join(', ')}. Este es el mismo enlace compartido para todo el grupo; cada integrante confirma su asistencia por separado.`
     : 'Enlace individual de esta persona. Compártelo únicamente con el invitado registrado.';
+  if (!guestLink(g)) { showToast(NO_LINK_MESSAGE); return; }
   document.getElementById('link-modal-code').textContent = guestLink(g);
   document.getElementById('link-open-btn').href = guestLink(g);
   const waBtn = document.getElementById('link-wa-btn');
-  waBtn.style.display = g.telefono ? '' : 'none';
+  waBtn.style.display = '';
+  waBtn.title = g.telefono ? 'Enviar por WhatsApp' : 'Sin teléfono: WhatsApp te dejará elegir el contacto';
   document.getElementById('link-overlay').classList.add('show');
 }
 
@@ -1299,6 +1318,7 @@ document.getElementById('link-regen-btn').addEventListener('click', ()=>{
 function sendWhatsApp(id){
   const g = guests.find(x=>x.id===id);
   if (!g) return;
+  if (!guestLink(g)) { showToast(NO_LINK_MESSAGE); return; }
   // El navegador no puede saber si el usuario terminó enviando el mensaje.
   // La marca de envío queda como acción manual para no contar borradores.
   window.open(whatsappUrl(g), '_blank', 'noopener,noreferrer');
@@ -1501,18 +1521,18 @@ document.getElementById('export-btn').addEventListener('click', ()=>{
   const header = ['#','Nombre','Pertenece','Categoría','Cantidad','Teléfono','Enviada','Fecha Envío','Estado RSVP','Enlace de invitación','Notas'];
   const rows = guests.map((g,i)=>[
     i+1,
-    `"${(g.nombre||'').replace(/"/g,'""')}"`,
+    g.nombre,
     g.pertenece==='novio'?'Novio':'Novia',
     CATS.find(c=>c.id===g.categoria)?.label||g.categoria,
     g.cantidad_personas||1,
-    `"${(g.telefono||'').replace(/"/g,'""')}"`,
+    g.telefono,
     g.invitacion_enviada?'Sí':'No',
     g.fecha_invitacion_enviada ? new Date(g.fecha_invitacion_enviada).toLocaleString('es-DO') : '',
     RSVP_LABELS[effectiveState(g)] || '',
-    `"${guestLink(g)}"`,
-    `"${(g.notas||'').replace(/"/g,'""')}"`
+    guestLink(g) || '',
+    g.notas
   ]);
-  const csv = [header,...rows].map(r=>r.join(',')).join('\r\n');
+  const csv = [header,...rows].map(AdminCommon.csvRow).join('\r\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}));
   a.download = 'lista-invitados-boda-starlin-reneisy.csv';

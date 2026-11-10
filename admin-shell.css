@@ -257,13 +257,11 @@ body.admin-shell-enabled > header.top {
 body.admin-shell-enabled .topbar-actions > a,
 body.admin-shell-enabled .topbar-nav > a,
 body.admin-shell-enabled .nav > a { display: none; }
-body.admin-shell-enabled [id="resumen-rsvp"],
 body.admin-shell-enabled [id="stats-grid"],
 body.admin-shell-enabled [id="stats-row"],
 body.admin-shell-enabled [id="capacidad-evento"],
 body.admin-shell-enabled [id="filtros-rsvp"],
 body.admin-shell-enabled [id="respuestas"],
-body.admin-shell-enabled [id="invitados-resumen"],
 body.admin-shell-enabled [id="invitados-filtros"],
 body.admin-shell-enabled [id="listas-invitados"],
 body.admin-shell-enabled [id="invitaciones-resumen"],

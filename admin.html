@@ -409,7 +409,7 @@ tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
     </div>
     <h1>Panel Privado</h1>
     <p>Starlin &amp; Reneisy · Boda 2026</p>
-    <input type="password" id="pwd-input" placeholder="Contraseña de acceso" autocomplete="current-password" />
+    <input type="password" id="pwd-input" placeholder="Contraseña de acceso" aria-label="Contraseña de acceso" autocomplete="current-password" />
     <button class="login-btn" id="login-btn">Acceder</button>
     <p class="login-error" id="login-error">Contraseña incorrecta. Intenta de nuevo.</p>
   </div>
@@ -439,11 +439,11 @@ tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
       <svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 0 0-5 5v3h10V7a5 5 0 0 0-5-5ZM5 10v12h14V10H5Zm7 3a2 2 0 0 1 1 3.73V19h-2v-2.27A2 2 0 0 1 12 13Z"/></svg>
       <span>Recepción</span>
     </a>
-    <button class="btn-sm btn-outline" id="export-btn">
+    <button class="btn-sm btn-outline" id="export-btn" aria-label="Exportar lista a CSV">
       <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
       <span>Exportar</span>
     </button>
-    <button class="btn-sm btn-outline" id="logout-btn">
+    <button class="btn-sm btn-outline" id="logout-btn" aria-label="Cerrar sesión">
       <svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
       <span>Salir</span>
     </button>
@@ -534,7 +534,7 @@ tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
 </main>
 
 <!-- ══ TOAST ══ -->
-<div id="toast"></div>
+<div id="toast" role="status" aria-live="polite"></div>
 
 <!-- ══ CONFIRM DIALOG ══ -->
 <div id="confirm-dialog" role="dialog" aria-modal="true" aria-label="Confirmar eliminación">
@@ -565,6 +565,7 @@ tbody td { padding: 1rem 1.2rem; font-size: .8rem; vertical-align: top; }
 </div>
 
 <script src="/guest-removal.js?v=1"></script>
+<script src="/admin-common.js?v=1"></script>
 <script>
 (function(){
 'use strict';
@@ -591,6 +592,7 @@ async function tryLogin(){
       body: JSON.stringify({ password: pwdInput.value })
     });
     if(res.ok){
+      pwdInput.value = '';
       loginScreen.classList.add('hide');
       setTimeout(()=>{ loginScreen.style.display='none'; }, 500);
       await renderAll();
@@ -641,7 +643,8 @@ async function deleteRespuesta(guestId){
   });
   if(!res.ok){
     const data = await res.json().catch(()=>({}));
-    showToast(data.error || 'No se pudo eliminar la respuesta.');
+    if(res.status === 401){ showLogin(); showToast('La sesión venció. Inicia sesión de nuevo.'); }
+    else showToast(data.error || 'No se pudo eliminar la respuesta.');
   }
   return res.ok;
 }
@@ -672,12 +675,15 @@ async function removeGuest(guest){
 }
 
 /* ─── RENDER ─── */
-function esc(str){ return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+const esc = AdminCommon.escapeHtml;
 
 async function renderAll(){
   try{
     currentStats = await getStats();
-  } catch(e){ return; }
+  } catch(e){
+    if(e.message !== 'No autorizado') showToast('No se pudieron actualizar las estadísticas. Los datos mostrados pueden estar desactualizados.');
+    return;
+  }
   if(!currentStats) return;
 
   const MAX = currentStats.max_guests || 150;
@@ -847,13 +853,14 @@ document.getElementById('dialog-cancel').addEventListener('click', ()=>{
   document.getElementById('confirm-dialog').classList.remove('show');
   pendingDeleteGuestId = null;
 });
-document.getElementById('dialog-confirm').addEventListener('click', async ()=>{
+document.getElementById('dialog-confirm').addEventListener('click', (event)=>AdminCommon.withBusy(event.currentTarget, async ()=>{
   if(pendingDeleteGuestId === null) return;
-  const ok = await deleteRespuesta(pendingDeleteGuestId);
+  const guestId = pendingDeleteGuestId;
   pendingDeleteGuestId = null;
+  const ok = await deleteRespuesta(guestId);
   document.getElementById('confirm-dialog').classList.remove('show');
   if(ok){ showToast('Respuesta anulada. El invitado puede volver a responder.'); renderAll(); }
-});
+}));
 
 /* ─── EXPORT CSV ─── */
 document.getElementById('export-btn').addEventListener('click', async ()=>{
@@ -864,14 +871,14 @@ document.getElementById('export-btn').addEventListener('click', async ()=>{
   const header = ['#','Nombre','Telefono','Personas','Respuesta','Mensaje','Fecha'];
   const rows = currentStats.registros.map((r,i)=>[
     i+1,
-    `"${(r.nombre||'').replace(/"/g,'""')}"`,
-    `"${(r.telefono||'').replace(/"/g,'""')}"`,
+    r.nombre,
+    r.telefono,
     r.cantidad_personas||1,
     r.estado==='confirmado' ? 'Si' : r.estado==='no_asiste' ? 'No' : 'Pendiente',
-    `"${(r.mensaje||'').replace(/"/g,'""')}"`,
+    r.mensaje,
     r.fecha ? new Date(r.fecha).toLocaleString('es-DO') : ''
   ]);
-  const csv = [header, ...rows].map(r=>r.join(',')).join('\r\n');
+  const csv = [header, ...rows].map(AdminCommon.csvRow).join('\r\n');
   const blob = new Blob(['﻿'+csv], { type:'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -899,10 +906,11 @@ document.getElementById('confirm-dialog').addEventListener('click', e=>{
 });
 
 /* ─── Auto-refresh every 30 seconds (solo si hay sesión) ─── */
-setInterval(()=>{ if(loginScreen.style.display === 'none') renderAll(); }, 30000);
+const dialogOpen = ()=>Boolean(document.querySelector('#rename-dialog.show, #confirm-dialog.show'));
+setInterval(()=>{ if(loginScreen.style.display === 'none' && !dialogOpen()) renderAll(); }, 30000);
 window.addEventListener('storage',event=>{
   if(event.key===GuestRemoval.eventKey&&loginScreen.style.display==='none'
-    &&!document.querySelector('#rename-dialog.show, #confirm-dialog.show'))renderAll();
+    &&!dialogOpen())renderAll();
 });
 
 (async function boot(){
@@ -916,7 +924,7 @@ window.addEventListener('storage',event=>{
   } catch(e){ /* login visible */ }
 })();
 
-window.addEventListener('focus', ()=>{ if(loginScreen.style.display === 'none') renderAll(); });
+window.addEventListener('focus', ()=>{ if(loginScreen.style.display === 'none' && !dialogOpen()) renderAll(); });
 
 })();
 </script>

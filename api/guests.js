@@ -355,8 +355,18 @@ module.exports = async function handler(req, res) {
       res.status(400).json({ error: 'El nombre completo es obligatorio' });
       return;
     }
+    // Un PUT parcial no debe borrar ni reiniciar lo que no se envió
+    // (antes pertenece/categoría volvían a sus valores por defecto y el
+    // teléfono y las notas se vaciaban).
+    const has = (...keys) => keys.some((key) => Object.prototype.hasOwnProperty.call(payload, key));
+    const changes = { nombre: clean.nombre };
+    if (has('telefono')) changes.telefono = clean.telefono;
+    if (has('pertenece')) changes.pertenece = clean.pertenece;
+    if (has('categoria')) changes.categoria = clean.categoria;
+    if (has('cantidad_personas', 'cantidad')) changes.cantidad_personas = clean.cantidad_personas;
+    if (has('notas')) changes.notas = clean.notas;
     if (supabaseConfigured && supabase) {
-      if (clean.cantidad_personas > 1) {
+      if (changes.cantidad_personas > 1) {
         const { data: current, error: currentError } = await supabase.from('guests')
           .select('cantidad_personas').eq('id', id).is('archived_at', null).maybeSingle();
         if (currentError || !current || current.cantidad_personas !== clean.cantidad_personas) {
@@ -366,16 +376,17 @@ module.exports = async function handler(req, res) {
       }
       const { data, error } = await supabase
         .from('guests')
-        .update(clean)
+        .update(changes)
         .eq('id', id)
         .is('archived_at', null)
         .select(PUBLIC_COLUMNS)
-        .single();
+        .maybeSingle();
       if (error) {
         console.error('Guests update error:', error.message);
         res.status(500).json({ error: 'Error actualizando invitado' });
         return;
       }
+      if (!data) { res.status(404).json({ error: 'Invitado no encontrado' }); return; }
       res.status(200).json(data);
       return;
     }
@@ -386,16 +397,16 @@ module.exports = async function handler(req, res) {
       res.status(404).json({ error: 'Invitado no encontrado' });
       return;
     }
-    if (clean.cantidad_personas > 1 && local[idx].cantidad_personas !== clean.cantidad_personas) {
+    if (changes.cantidad_personas > 1 && local[idx].cantidad_personas !== changes.cantidad_personas) {
       res.status(400).json({ error: 'Cada persona debe tener su propio registro. Para resolver un cupo antiguo, revisa primero a quién incluye.' });
       return;
     }
-    local[idx] = { ...local[idx], ...clean, updated_at: new Date().toISOString() };
+    local[idx] = { ...local[idx], ...changes, updated_at: new Date().toISOString() };
     const invitationRows = getLocalInvitations();
     const invitation = invitationRows.find((row) => row.status === 'active'
       && (row.members || []).some((member) => String(member.guest_id) === String(id) && member.active !== false));
     if (invitation) {
-      invitation.needs_review = clean.cantidad_personas > 1;
+      invitation.needs_review = Number(local[idx].cantidad_personas) > 1;
       if (invitation.group_type === 'individual') invitation.display_name = clean.nombre;
       else if (invitation.group_type === 'couple') {
         invitation.display_name = invitation.members
@@ -485,8 +496,12 @@ module.exports = async function handler(req, res) {
           token = data;
         } else {
           token = newToken();
-          const { error } = await supabase.from('guests').update({ token }).eq('id', id).is('archived_at', null);
+          const { data: updated, error } = await supabase.from('guests').update({ token })
+            .eq('id', id).is('archived_at', null).select('id');
           if (error) { res.status(500).json({ error: 'Error regenerando token' }); return; }
+          // Sin filas actualizadas el invitado no existe o está archivado: no se
+          // debe devolver un enlace nuevo que nunca se guardó.
+          if (!updated?.length) { res.status(404).json({ error: 'Invitado no encontrado' }); return; }
         }
         const { data, error } = await supabase.from('guests').select(PUBLIC_COLUMNS).eq('id', id).single();
         if (error) {

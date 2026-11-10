@@ -24,12 +24,19 @@
     ].join('\n');
   }
 
-  function whatsappUrl(link, phone) {
+  // wa.me exige número internacional: un número local de 10 dígitos (809 000 0000)
+  // se completa con el prefijo 1 de República Dominicana / NANP.
+  function whatsappDigits(phone) {
     const digits = String(phone || '').replace(/\D/g, '');
+    return digits.length === 10 ? `1${digits}` : digits;
+  }
+
+  function whatsappUrl(link, phone) {
+    const digits = whatsappDigits(phone);
     return `https://wa.me/${digits}?text=${encodeURIComponent(message(link))}`;
   }
 
-  const sharing = { invitationUrl, message, whatsappUrl };
+  const sharing = { invitationUrl, message, whatsappUrl, whatsappDigits };
   if (typeof module !== 'undefined' && module.exports) module.exports = sharing;
   else root.InvitationShare = sharing;
 })(typeof window !== 'undefined' ? window : globalThis);
