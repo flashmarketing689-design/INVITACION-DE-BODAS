@@ -40,6 +40,15 @@ button,input,select{font:inherit}
 .pool.drop-over,.table-card.drop-over{outline:3px dashed var(--green);outline-offset:3px;background:#f7fbf6}
 .table-card.drop-full{outline-color:var(--red);background:var(--red-light)}
 .pool h4{margin:.8rem 0 .3rem;font-size:.7rem;color:var(--soft);font-weight:600}
+.pool-filters{display:flex;flex-wrap:wrap;gap:.35rem;margin:0 0 .6rem}
+.pool-filters button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:.3rem .65rem;font-size:.66rem;cursor:pointer;color:var(--ink);min-height:30px}
+.pool-filters button b{font-weight:600;color:var(--soft);margin-left:.2rem}
+.pool-filters button[aria-pressed=true]{background:var(--green);border-color:var(--green);color:#fff}.pool-filters button[aria-pressed=true] b{color:#fff}
+.pool-filters button:focus-visible{outline:3px solid var(--green);outline-offset:2px}
+.pool-list h4.sec{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin:.55rem 0 .15rem;padding:.4rem .6rem;position:sticky;top:-.15rem;z-index:1;border-radius:9px;background:var(--sec-bg,#f1ede5);border-left:5px solid var(--sec,var(--green));color:var(--ink);font-size:.72rem}
+.pool-list h4.sec:first-child{margin-top:0}
+.pool-list h4.sec b{font-weight:600;font-size:.68rem;background:#fff;border-radius:99px;padding:.05rem .5rem;color:var(--ink)}
+.sec-familia_cercana{--sec:#ad8b36;--sec-bg:#f6efdc}.sec-familiares{--sec:#527653;--sec-bg:#e8f0e7}.sec-participantes{--sec:#a85d62;--sec-bg:#f5e8e9}.sec-iglesia{--sec:#6b5b95;--sec-bg:#eeeaf5}.sec-amigos{--sec:#3b7ea1;--sec-bg:#e6f0f6}
 .tables{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.9rem}
 .table-card{position:relative;background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:.9rem;display:flex;flex-direction:column;gap:.45rem;min-height:150px}
 .table-card.main{border-color:#ad8b3670;background:linear-gradient(#fffdf6,#fff 55%)}
@@ -124,6 +133,7 @@ body.busy .board{opacity:.7;pointer-events:none}
   <div class="board">
     <aside class="panel pool" id="sin-mesa" data-drop="none" aria-labelledby="pool-title">
       <h3 id="pool-title">Sin mesa</h3><p class="sub" id="pool-sub"></p>
+      <div class="pool-filters" id="pool-filters" role="group" aria-label="Ver por categoría"></div>
       <div class="pool-list" id="pool-list"></div>
     </aside>
     <section class="tables" id="mesas" aria-label="Mesas"></section>
@@ -161,6 +171,7 @@ const SECTIONS = [
   ['|', 'Cualquier invitado'],
 ];
 let state = { tables: [], people: [], summary: {}, warnings: [] };
+let poolFilter = 'all';
 let selectedId = null, busy = false, dragging = false, planWarnings = [], editingTable = null, toastTimer;
 
 async function api(url, options = {}) {
@@ -190,6 +201,13 @@ const hue = (text) => { let h = 0; for (const c of String(text)) h = (h * 31 + c
 const personById = (id) => state.people.find((person) => person.id === id);
 const tableById = (id) => state.tables.find((table) => table.id === id);
 const norm = (text) => String(text || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLocaleLowerCase('es').trim();
+const POOL_FILTERS = [
+  ['all', 'Todos', () => true],
+  ['familia', 'Familia', (p) => ['familia_cercana', 'familiares'].includes(p.section_category)],
+  ['participantes', 'Participantes', (p) => p.section_category === 'participantes'],
+  ['iglesia', 'Iglesia', (p) => p.section_category === 'iglesia'],
+  ['amigos', 'Amigos', (p) => p.section_category === 'amigos'],
+];
 const byGroupThenName = (a, b) => String(a.invitation_name).localeCompare(String(b.invitation_name), 'es')
   || String(a.invitation_id).localeCompare(String(b.invitation_id)) || String(a.nombre).localeCompare(String(b.nombre), 'es');
 
@@ -230,12 +248,23 @@ function render() {
 
   const showDeclined = $('show-declined').checked;
   const query = norm($('search').value);
-  const pool = state.people.filter((p) => p.table_id == null && p.seatable && (showDeclined || p.estado_rsvp !== 'no_asiste'))
-    .filter((p) => !query || norm(`${p.nombre} ${p.invitation_name}`).includes(query)).sort(byGroupThenName);
+  const waiting = state.people.filter((p) => p.table_id == null && p.seatable && (showDeclined || p.estado_rsvp !== 'no_asiste'))
+    .filter((p) => !query || norm(`${p.nombre} ${p.invitation_name}`).includes(query));
+  $('pool-filters').innerHTML = POOL_FILTERS.map(([id, label, test]) =>
+    `<button type="button" data-pool-filter="${id}" aria-pressed="${id === poolFilter}">${label}<b>${waiting.filter(test).length}</b></button>`).join('');
+  const activeFilter = POOL_FILTERS.find(([id]) => id === poolFilter) || POOL_FILTERS[0];
+  const pool = waiting.filter(activeFilter[2]);
   const review = state.people.filter((p) => !p.seatable);
+  // Por categoría, en el mismo orden que las mesas; dentro de cada una, por grupo y nombre.
+  const sections = [...pool.reduce((map, person) => {
+    if (!map.has(person.section_key)) map.set(person.section_key, { label: person.section_label, category: person.section_category, order: person.section_order, people: [] });
+    map.get(person.section_key).people.push(person);
+    return map;
+  }, new Map()).values()].sort((a, b) => a.order - b.order);
   $('pool-sub').textContent = `${pool.length} persona${pool.length === 1 ? '' : 's'} esperando mesa`;
-  $('pool-list').innerHTML = (pool.length ? pool.map(chip).join('')
-    : `<p class="empty-seat">${query ? 'Nadie sin mesa con ese nombre.' : 'Todos tienen mesa. 🎉'}</p>`)
+  $('pool-list').innerHTML = (sections.length ? sections.map((section) =>
+    `<h4 class="sec sec-${esc(section.category)}"><span>${esc(section.label)}</span><b>${section.people.length}</b></h4>${section.people.sort(byGroupThenName).map(chip).join('')}`).join('')
+    : `<p class="empty-seat">${query ? 'Nadie sin mesa con ese nombre.' : poolFilter !== 'all' ? 'No hay nadie de esta categoría sin mesa.' : 'Todos tienen mesa. 🎉'}</p>`)
     + (review.length ? `<h4>Requieren revisión (${review.length})</h4>${review.map(chip).join('')}` : '');
 
   const holding = selectedId != null;
@@ -306,6 +335,8 @@ function select(id) {
 document.addEventListener('click', (event) => {
   const guest = event.target.closest('[data-guest]');
   if (guest) { select(Number(guest.dataset.guest)); return; }
+  const filter = event.target.closest('[data-pool-filter]');
+  if (filter) { poolFilter = filter.dataset.poolFilter; render(); return; }
   const edit = event.target.closest('[data-edit]');
   if (edit) { openEdit(Number(edit.dataset.edit)); return; }
   const move = event.target.closest('[data-move]');

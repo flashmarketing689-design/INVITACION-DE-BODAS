@@ -205,3 +205,30 @@ test('un estado local guardado antes de las secciones se completa con el orden p
   const custom = tables.ensureSections({ tables: [{ id: 1, name: 'X', capacity: 4, category: null, side: null }], assignments: [] });
   assert.equal(custom.tables[0].category, null, 'una mesa ya editada no se pisa');
 });
+
+test('cada invitación se muestra en la sección de su grupo, en el mismo orden que las mesas', () => {
+  const member = (guest_id, nombre, categoria, pertenece) => ({ guest_id, nombre, categoria, pertenece, estado_rsvp: null, cantidad_personas: 1 });
+  const invitations = [
+    { id: 'amigos-novio', display_name: 'Amigos', group_type: 'couple', members: [member(1, 'Amigo Uno', 'amigos', 'novio'), member(2, 'Companero Dos', 'companeros', 'novio')] },
+    { id: 'iglesia', display_name: 'Coro', group_type: 'couple', members: [member(3, 'Coro Uno', 'iglesia', 'novia'), member(4, 'Coro Dos', 'iglesia', 'novio')] },
+    { id: 'tios-novia', display_name: 'Tios', group_type: 'family', members: [member(5, 'Tio Uno', 'familiares', 'novia'), member(6, 'Tio Dos', 'familiares', 'novia')] },
+    { id: 'padres', display_name: 'Padres', group_type: 'couple', members: [member(7, 'Padre Uno', 'familiares', 'novia'), member(8, 'Madre Uno', 'familiares', 'novia')] },
+    { id: 'mixta', display_name: 'Mixta', group_type: 'couple', members: [member(9, 'Mixta Uno', 'familiares', 'novia'), member(10, 'Mixta Dos', 'familiares', 'novio')] },
+    { id: 'part', display_name: 'Cortejo', group_type: 'individual', members: [member(11, 'Dama Honor', 'participantes', 'novia')] },
+    { id: 'amiga-novia', display_name: 'Amiga', group_type: 'individual', members: [member(12, 'Amiga Novia', 'amigos', 'novia')] },
+  ];
+  const people = tables.buildPeople(invitations, [], new Set([7, 8]));
+  const section = (id) => people.find((person) => person.id === id);
+  assert.equal(section(7).section_key, 'familia_cercana|novia');
+  assert.equal(section(5).section_key, 'familiares|novia');
+  assert.equal(section(9).section_label, 'Familiares (ambos lados)');
+  assert.equal(section(9).section_key, section(10).section_key, 'el grupo nunca se separa entre secciones');
+  assert.equal(section(2).section_key, 'amigos|novio', 'los compañeros van con los amigos');
+  assert.equal(section(3).section_key, 'iglesia', 'iglesia no se divide por lado');
+  assert.equal(section(11).section_label, 'Participantes de la boda');
+  const ordered = [...new Map(people.map((person) => [person.section_key, person])).values()]
+    .sort((a, b) => a.section_order - b.section_order).map((person) => person.section_label);
+  assert.deepEqual(ordered, ['Familia cercana de la novia', 'Familiares de la novia', 'Familiares (ambos lados)',
+    'Participantes de la boda', 'Iglesia', 'Amigos de la novia', 'Amigos del novio']);
+  assert.deepEqual(tables.groupSection({ category: 'familia_cercana', side: 'mixed' }).label, 'Familia cercana (ambos lados)');
+});
