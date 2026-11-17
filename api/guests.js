@@ -27,6 +27,7 @@ const { allowRequest, clientIp } = require('../lib/rateLimit');
 const { getLocalInvitations, saveLocalInvitations, ensureLocalSingletons, isMissingMigration } = require('../lib/invitations');
 const { guestInvitationDetails } = require('../lib/guestInvitationDetails');
 const Kinships = require('../lib/kinships');
+const { titleCaseName } = require('../lib/names');
 
 /* ─── Store local (fallback dev) ─── */
 const { DATA_DIR } = require('../lib/dataDir');
@@ -79,7 +80,7 @@ function newToken() {
 }
 
 function normalizeGuestInput(payload) {
-  const nombre = String(payload.nombre || '').trim().slice(0, 120);
+  const nombre = titleCaseName(payload.nombre).slice(0, 120);
   const pertenece = payload.pertenece === 'novia' ? 'novia' : 'novio';
   const categoria = ['familiares', 'amigos', 'companeros', 'iglesia', 'participantes'].includes(payload.categoria)
     ? payload.categoria
@@ -454,7 +455,7 @@ module.exports = async function handler(req, res) {
     }
 
     if (action === 'renombrar') {
-      const nombre = String(payload.nombre || '').trim().replace(/\s+/g, ' ').slice(0, 120);
+      const nombre = titleCaseName(payload.nombre).slice(0, 120);
       if (!nombre || nombre.split(' ').filter(Boolean).length < 2) {
         res.status(400).json({ error: 'El nombre completo debe incluir nombre y apellido.' });
         return;

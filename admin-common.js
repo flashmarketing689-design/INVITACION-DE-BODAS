@@ -47,7 +47,40 @@
     return `${hex.slice(0, 4).join('')}-${hex.slice(4, 6).join('')}-${hex.slice(6, 8).join('')}-${hex.slice(8, 10).join('')}-${hex.slice(10).join('')}`;
   }
 
-  const common = { csvCell, csvRow, escapeHtml, withBusy, uuid };
+  /**
+   * Nombres de personas: primera letra de cada nombre y apellido en mayúscula ("MARÍA pérez" →
+   * "María Pérez"); partículas como "de", "del", "la" o "y" en minúscula salvo al inicio.
+   * La misma regla que lib/names.js y la base de datos (hay pruebas que comparan las tres).
+   */
+  const PARTICLES = ['de', 'del', 'la', 'las', 'los', 'y', 'e'];
+  function titleCaseName(value) {
+    const text = String(value === null || value === undefined ? '' : value).replace(/\s+/g, ' ').trim();
+    if (!text) return '';
+    return text.split(' ').map((word, index) => {
+      const lower = word.toLocaleLowerCase('es');
+      if (index > 0 && PARTICLES.indexOf(lower) !== -1) return lower;
+      return lower.replace(/(^|[-'’.])(\p{L})/gu, (_, separator, letter) => separator + letter.toLocaleUpperCase('es'));
+    }).join(' ');
+  }
+  function titleCaseLines(value) {
+    return String(value === null || value === undefined ? '' : value).split(/\r?\n/).map(titleCaseName).join('\n');
+  }
+
+  // Los campos marcados con data-name (un nombre) o data-names (uno por línea) se corrigen al
+  // salir del campo y justo antes de enviar el formulario.
+  function formatNameField(field) {
+    if (!field || !field.matches) return;
+    if (field.matches('[data-names]')) field.value = titleCaseLines(field.value);
+    else if (field.matches('[data-name]')) field.value = titleCaseName(field.value);
+  }
+  if (typeof document !== 'undefined') {
+    document.addEventListener('focusout', (event) => formatNameField(event.target), true);
+    document.addEventListener('submit', (event) => {
+      if (event.target && event.target.querySelectorAll) event.target.querySelectorAll('[data-name], [data-names]').forEach(formatNameField);
+    }, true);
+  }
+
+  const common = { csvCell, csvRow, escapeHtml, withBusy, uuid, titleCaseName, titleCaseLines };
   if (typeof module !== 'undefined' && module.exports) module.exports = common;
   else root.AdminCommon = common;
 })(typeof window !== 'undefined' ? window : globalThis);

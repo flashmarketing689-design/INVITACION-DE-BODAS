@@ -403,6 +403,66 @@ section {
 }
 .ec-sub { font-size: .74rem; color: var(--text-soft); margin-top: .4rem; }
 
+/* ─── PROGRAMA ─── */
+#programa { background: linear-gradient(160deg, var(--ivory-dark) 0%, var(--green-pale) 100%); }
+.timeline {
+  list-style: none; position: relative;
+  max-width: 640px; margin: 0 auto;
+}
+.timeline::before {
+  content: ''; position: absolute; top: 14px; bottom: 14px;
+  left: calc(6.2rem + 1.05rem - 1px); width: 2px;
+  background: linear-gradient(180deg, transparent, var(--green-light) 6%, var(--green-light) 94%, transparent);
+}
+.tl-item {
+  position: relative; display: grid;
+  grid-template-columns: 6.2rem 1fr; column-gap: 2.1rem;
+  align-items: center; padding: .55rem 0;
+}
+.tl-time {
+  text-align: right; font-family: 'Cormorant Garamond', serif;
+  font-size: 1.28rem; font-weight: 600; color: var(--green); line-height: 1.1;
+  white-space: nowrap;
+}
+.tl-time small {
+  display: block; margin-top: .15rem;
+  font-family: 'Poppins', sans-serif; font-size: .58rem; font-weight: 500;
+  letter-spacing: .18em; color: var(--text-soft);
+}
+.tl-item::before {
+  content: ''; position: absolute; left: calc(6.2rem + 1.05rem - 8px); top: 50%;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--white); border: 2px solid var(--green);
+  transform: translateY(-50%);
+  box-shadow: 0 0 0 4px rgba(214,229,212,.9);
+}
+.tl-card {
+  background: var(--white); border-radius: 16px;
+  padding: .95rem 1.3rem;
+  border: 1px solid rgba(90,122,92,.14); box-shadow: var(--shadow);
+}
+.tl-name {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(1.25rem, 3.6vw, 1.55rem); font-weight: 500;
+  color: var(--text); line-height: 1.2;
+}
+.tl-note { font-size: .72rem; color: var(--text-soft); margin-top: .2rem; }
+.tl-key::before { background: var(--gold); border-color: var(--gold-dark); }
+.tl-key .tl-card { border-color: rgba(201,168,76,.55); background: linear-gradient(135deg, var(--white), var(--champagne)); }
+.tl-key .tl-time { color: var(--gold-dark); }
+.tl-sub { padding-top: 0; }
+.tl-sub::before { width: 10px; height: 10px; left: calc(6.2rem + 1.05rem - 5px); border-width: 2px; box-shadow: none; }
+.tl-sub .tl-card { padding: .6rem 1.1rem; background: transparent; box-shadow: none; border-style: dashed; }
+.tl-sub .tl-name { font-size: 1.12rem; }
+@media(max-width:440px){
+  .tl-item { grid-template-columns: 4.7rem 1fr; column-gap: 1.7rem; }
+  .timeline::before { left: calc(4.7rem + .85rem - 1px); }
+  .tl-item::before { left: calc(4.7rem + .85rem - 8px); }
+  .tl-sub::before { left: calc(4.7rem + .85rem - 5px); }
+  .tl-time { font-size: 1.08rem; }
+  .tl-card { padding: .8rem 1rem; }
+}
+
 /* ─── LOCATION ─── */
 #ubicacion { background: var(--ivory-dark); }
 .location-box {
@@ -1369,6 +1429,65 @@ section {
         <div class="ec-sub">República Dominicana (AST)</div>
       </div>
     </div>
+  </div>
+</section>
+
+<!-- ══ PROGRAMA ══ -->
+<section id="programa" aria-label="Programa del evento">
+  <div class="section-inner">
+    <span class="s-eyebrow reveal">Cronograma</span>
+    <h2 class="s-title reveal d1">Programa del <em>día</em></h2>
+    <div class="divider reveal d2"></div>
+    <ol class="timeline">
+      <li class="tl-item reveal">
+        <div class="tl-time">3:00<small>PM</small></div>
+        <div class="tl-card"><div class="tl-name">Bienvenida</div><div class="tl-note">3:00 – 4:00 PM</div></div>
+      </li>
+      <li class="tl-item tl-key reveal">
+        <div class="tl-time">4:00<small>PM</small></div>
+        <div class="tl-card"><div class="tl-name">Ceremonia</div><div class="tl-note">4:00 – 4:15 PM</div></div>
+      </li>
+      <li class="tl-item reveal">
+        <div class="tl-time">4:15<small>PM</small></div>
+        <div class="tl-card"><div class="tl-name">Recepción</div><div class="tl-note">4:15 – 4:35 PM</div></div>
+      </li>
+      <li class="tl-item reveal">
+        <div class="tl-time">4:35<small>PM</small></div>
+        <div class="tl-card"><div class="tl-name">Primer baile</div><div class="tl-note">4:35 – 4:45 PM</div></div>
+      </li>
+      <li class="tl-item tl-sub reveal">
+        <div class="tl-time"></div>
+        <div class="tl-card"><div class="tl-name">Entrada de las damas</div></div>
+      </li>
+      <li class="tl-item reveal">
+        <div class="tl-time">4:45<small>PM</small></div>
+        <div class="tl-card"><div class="tl-name">Brindis</div><div class="tl-note">4:45 – 4:50 PM</div></div>
+      </li>
+      <li class="tl-item reveal">
+        <div class="tl-time">4:50<small>PM</small></div>
+        <div class="tl-card"><div class="tl-name">Fotos</div><div class="tl-note">4:50 – 5:50 PM</div></div>
+      </li>
+      <li class="tl-item reveal">
+        <div class="tl-time">5:50<small>PM</small></div>
+        <div class="tl-card"><div class="tl-name">Juegos</div><div class="tl-note">Anillo y zapato · 5:50 – 6:30 PM</div></div>
+      </li>
+      <li class="tl-item reveal">
+        <div class="tl-time">6:30<small>PM</small></div>
+        <div class="tl-card"><div class="tl-name">Buffet</div><div class="tl-note">6:30 – 7:30 PM</div></div>
+      </li>
+      <li class="tl-item reveal">
+        <div class="tl-time">7:30<small>PM</small></div>
+        <div class="tl-card"><div class="tl-name">Palabras de los esposos</div><div class="tl-note">7:30 – 7:35 PM</div></div>
+      </li>
+      <li class="tl-item reveal">
+        <div class="tl-time">7:35<small>PM</small></div>
+        <div class="tl-card"><div class="tl-name">Tiro de ramo</div><div class="tl-note">7:35 – 7:40 PM</div></div>
+      </li>
+      <li class="tl-item tl-key reveal">
+        <div class="tl-time">7:40<small>PM</small></div>
+        <div class="tl-card"><div class="tl-name">Hora loca</div><div class="tl-note">7:40 PM en adelante</div></div>
+      </li>
+    </ol>
   </div>
 </section>
 

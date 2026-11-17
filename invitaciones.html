@@ -30,7 +30,7 @@
       <div class="people" id="people-list"><div class="empty">Cargando personas…</div></div>
       <div class="group-form">
         <label>Tipo de invitación<select id="group-type"><option value="couple">Pareja (exactamente 2)</option><option value="family">Familia (2 o más)</option></select></label>
-        <label>Nombre visible (opcional)<input id="display-name" maxlength="120" placeholder="Ej. Familia Pérez"></label>
+        <label>Nombre visible (opcional)<input id="display-name" data-name maxlength="120" placeholder="Ej. Familia Pérez"></label>
         <label class="full">Contacto principal<select id="primary-contact"><option value="">Selecciona personas primero</option></select></label>
         <button class="btn primary full" id="group-submit" type="button" disabled>Crear invitación compartida</button>
       </div>
@@ -59,12 +59,12 @@
     <label>Buscar personas ya registradas<input id="member-search" type="search" placeholder="Nombre del invitado…" autocomplete="off"></label>
     <div class="member-picker" id="member-picker"></div>
     <div class="modal-count" id="member-selection-count">0 seleccionadas</div>
-    <label>Personas nuevas (una por línea, nombre y apellido)<textarea id="new-member-names" placeholder="Ej. René Pérez"></textarea></label>
+    <label>Personas nuevas (una por línea, nombre y apellido)<textarea id="new-member-names" data-names placeholder="Ej. René Pérez"></textarea></label>
     <div class="modal-grid">
       <label>Se agregarán a la lista de<select id="new-member-owner"><option value="novio">Novio</option><option value="novia">Novia</option></select></label>
       <label>Categoría<select id="new-member-category"><option value="familiares">Familiares</option><option value="amigos">Amigos</option><option value="companeros">Compañeros</option><option value="iglesia">Iglesia</option><option value="participantes">Participantes</option></select></label>
     </div>
-    <label>Nombre visible de la invitación (opcional)<input id="new-display-name" type="text" maxlength="120" placeholder="Se ajustará automáticamente"></label>
+    <label>Nombre visible de la invitación (opcional)<input id="new-display-name" data-name type="text" maxlength="120" placeholder="Se ajustará automáticamente"></label>
     <div class="modal-actions"><button class="btn" id="member-cancel" type="button">Cancelar</button><button class="btn primary" id="member-save" type="submit">Agregar a la invitación</button></div>
   </form>
 </div>

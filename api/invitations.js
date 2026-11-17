@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { titleCaseName } = require('../lib/names');
 const { isAdminRequest, isSameOriginRequest } = require('../lib/auth');
 const { supabase, supabaseConfigured } = require('../lib/supabaseClient');
 const {
@@ -151,7 +152,7 @@ async function listInvitations() {
 }
 
 function defaultDisplayName(type, people, supplied) {
-  const name = String(supplied || '').trim().slice(0, 120);
+  const name = titleCaseName(supplied).slice(0, 120);
   if (name) return name;
   if (type === 'couple') return people.map((guest) => guest.nombre).join(' y ');
   const surname = String(people[0]?.nombre || '').trim().split(/\s+/).at(-1) || 'Familia';
@@ -252,7 +253,7 @@ function normalizeNewMembers(value) {
   if (!Array.isArray(value) || value.length > 99) return null;
   const allowedCategories = ['familiares', 'amigos', 'companeros', 'iglesia', 'participantes'];
   const members = value.map((row) => ({
-    nombre: String(row?.nombre || '').trim().replace(/\s+/g, ' ').slice(0, 120),
+    nombre: titleCaseName(row?.nombre).slice(0, 120),
     telefono: String(row?.telefono || '').trim().slice(0, 30) || null,
     pertenece: row?.pertenece === 'novia' ? 'novia' : row?.pertenece === 'novio' ? 'novio' : '',
     categoria: allowedCategories.includes(row?.categoria) ? row.categoria : '',
@@ -266,7 +267,7 @@ async function addMembers(payload, res) {
   const invitationId = typeof payload.invitation_id === 'string' ? payload.invitation_id.trim() : '';
   const ids = Array.isArray(payload.guest_ids) ? payload.guest_ids.map((value) => Number(value)) : [];
   const newMembers = normalizeNewMembers(payload.new_members);
-  const displayName = String(payload.display_name || '').trim().replace(/\s+/g, ' ').slice(0, 120);
+  const displayName = titleCaseName(payload.display_name).slice(0, 120);
   if (!invitationId || !newMembers || (!ids.length && !newMembers.length)
       || ids.some((id) => !Number.isSafeInteger(id) || id <= 0)
       || new Set(ids).size !== ids.length || ids.length + newMembers.length > 99
