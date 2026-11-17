@@ -106,11 +106,20 @@ body.busy .board{opacity:.7;pointer-events:none}
 .toast{position:fixed;left:50%;bottom:5.2rem;transform:translate(-50%,20px);background:#241b16;color:#fff;padding:.7rem 1rem;border-radius:12px;font-size:.76rem;opacity:0;pointer-events:none;transition:.2s;z-index:30;max-width:min(92vw,520px);text-align:center}.toast.show{opacity:1;transform:translate(-50%,0)}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 @media (max-width:900px){.board{grid-template-columns:1fr}.pool{position:static;max-height:420px}.summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@page{margin:10mm}
 @media print{
-  .top,.options,.pool,.move-bar,.icon-btn,.move-here,.toast,.notice,.intro p,.summary,.admin-sidebar,.admin-shell-overlay,.auth,.modal{display:none!important}
-  body{background:#fff}.wrap{max-width:none;padding:0}
-  .tables{grid-template-columns:repeat(2,1fr);gap:.6rem}.table-card{box-shadow:none;break-inside:avoid;min-height:0;border:1px solid #999}
+  .top,.options,.pool,.move-bar,.icon-btn,.move-here,.toast,.notice,.intro p,.summary,.admin-sidebar,.admin-shell-overlay,.auth,.modal,.grip{display:none!important}
+  html,body,.wrap,.board,.tables{background:#fff!important}.wrap{max-width:none;padding:0;margin:0}
+  /* 4 mesas por hoja (2 × 2), en Carta o A4; cada cuarta mesa empieza hoja nueva */
+  .tables{grid-template-columns:repeat(2,1fr);grid-auto-rows:minmax(118mm,auto);gap:6mm}
+  .table-card:nth-child(4n+1):not(:first-child){break-before:page}
+  .table-card{box-shadow:none;break-inside:avoid;min-height:0;border:1px solid #999;padding:4mm;gap:2mm;background:#fff!important}
+  .t-head{cursor:auto}.t-head h4{font-size:15pt}.badge{font-size:9pt;margin-top:1mm}.count{font-size:9pt}
+  .seats{gap:0}
   .guest{border:0;border-left:0;padding:.05rem 0;background:none!important;box-shadow:none!important;opacity:1!important}.guest .g-meta{display:none}.meter{display:none}
+  .guest,.guest.compact{min-height:0!important}
+  .guest.compact{padding:1.2mm 0;border-bottom:.5pt solid #ddd;border-radius:0}.guest.compact .g-name{font-size:10.5pt}
+  .board{display:block}
 }
 </style>
 <link rel="stylesheet" href="/admin-shell.css?v=2" />
