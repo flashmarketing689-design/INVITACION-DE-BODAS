@@ -227,12 +227,13 @@ test('SQL: agregar varios existentes y nuevos convierte pareja a familia', async
     { nombre: 'Persona Cinco', pertenece: 'novio', categoria: 'amigos' },
   ], 'Familia de prueba');
   assert.equal(result.group_type, 'family');
-  assert.equal(result.display_name, 'Familia de prueba');
+  assert.equal(result.display_name, 'Familia de prueba', 'la función devuelve el nombre recibido');
+  assert.equal((await db.query('select display_name from public.invitations where id = $1', [first.invitation.id])).rows[0].display_name, 'Familia de Prueba', 'lo guardado ya está corregido');
   assert.equal(result.added_count, 3);
   assert.deepEqual((await activeMembers(first.invitation.id)).map((row) => row.position), [0, 1, 2, 3, 4]);
   const last = await guest('Persona Seis');
   const expanded = await add(first.invitation.id, [last.id]);
-  assert.equal(expanded.display_name, 'Familia de prueba');
+  assert.equal(expanded.display_name, 'Familia de Prueba');
 });
 
 test('SQL: rechaza personas agrupadas, repetidas, archivadas y datos nuevos inválidos sin cambios parciales', async () => {

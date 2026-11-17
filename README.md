@@ -24,7 +24,7 @@ Frontend estático + funciones serverless en `api/` (Vercel) + Supabase como bas
 | `ADMIN_SESSION_SECRET` | recomendada | ≥ 32 caracteres; si falta se usa la service key |
 
 ## Base de datos
-Ejecuta en el SQL Editor de Supabase, en orden, los archivos de `migrations/` (001 → 015).
+Ejecuta en el SQL Editor de Supabase, en orden, los archivos de `migrations/` (001 → 016).
 La 010 corrige la separación de grupos con personas eliminadas, protege las
 confirmaciones de quienes ya entraron y sincroniza el teléfono. La 011 crea el módulo de mesas y la 012 añade las secciones de las mesas y la marca de familia cercana
 (ejecútala antes de desplegar esa versión) la 013 añade el parentesco de los familiares, la 014 el cortejo y la 015 los parentescos editables y los novios del cortejo
@@ -76,6 +76,12 @@ Las seis pantallas comparten un mismo sistema, definido al final de `admin-shell
 base de 20 px en escritorio y 19 px en móvil, texto mínimo de `.75rem` (15 px), controles de 44 px de alto, una paleta
 y una cabecera comunes. Todo el panel usa `rem`, así que el tamaño general se ajusta cambiando `html { font-size }`.
 Una prueba impide volver a usar tamaños por debajo del mínimo.
+
+## Nombres
+Todos los nombres y apellidos se guardan con la primera letra de cada uno en mayúscula ("MARÍA pérez" → "María Pérez"),
+y las partículas de apellidos compuestos en minúscula ("María de los Ángeles"). La regla es la misma en tres lugares
+—el navegador (se corrige al salir del campo), la API (al guardar) y la base de datos (`public.title_case_name`, que
+además corrige los nombres ya guardados al ejecutar la migración 016)— y hay pruebas que comprueban que coinciden.
 
 ## Desarrollo
 ```bash

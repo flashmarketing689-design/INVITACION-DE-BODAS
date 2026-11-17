@@ -8,6 +8,7 @@ const {
   getInvitationByPassToken, isMissingMigration, getLocalCheckins, saveLocalCheckins,
 } = require('../lib/invitations');
 const { listInvitations } = require('./invitations');
+const { titleCaseName } = require('../lib/names');
 
 function parseBody(body) {
   if (!body) return {};
@@ -99,7 +100,7 @@ async function handleLogin(req, res) {
     return;
   }
   const body = parseBody(req.body);
-  const operator = String(body.operator || '').trim().replace(/[<>\u0000-\u001f]/g, '').slice(0, 60);
+  const operator = titleCaseName(String(body.operator || '').replace(/[<>\u0000-\u001f]/g, '')).slice(0, 60);
   if (operator.length < 2 || !safeEqual(body.password || '', password)) {
     await new Promise((resolve) => setTimeout(resolve, 250));
     res.status(401).json({ error: 'Nombre o clave incorrectos.' });

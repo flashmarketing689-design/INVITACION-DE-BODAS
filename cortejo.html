@@ -123,7 +123,7 @@ body.busy main{opacity:.7;pointer-events:none}
 <div class="modal" id="member-modal" role="dialog" aria-modal="true" aria-labelledby="member-title">
   <form class="dialog" id="member-form">
     <h2 id="member-title">Persona sin invitación</h2>
-    <label>Nombre<input type="text" id="member-name" maxlength="120" required placeholder="Ej. Padre Juan Pérez"></label>
+    <label>Nombre<input type="text" id="member-name" data-name maxlength="120" required placeholder="Ej. Padre Juan Pérez"></label>
     <label>Lado<select id="member-side" class="assign" style="max-width:none"><option value="novia">De la novia</option><option value="novio">Del novio</option></select></label>
     <p class="dialog-error" id="member-error" role="alert"></p>
     <div class="modal-actions"><span></span><div><button class="btn" id="member-cancel" type="button">Cancelar</button><button class="btn primary" id="member-save" type="submit">Agregar</button></div></div>
