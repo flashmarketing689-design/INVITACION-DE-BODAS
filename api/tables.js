@@ -5,6 +5,7 @@
  * POST ?action=move      → { guest_ids, table_id|null, with_group? } sienta o libera personas
  * POST ?action=auto      → organiza automáticamente a quienes no tienen mesa
  * POST ?action=reset     → { table_id? } vacía una mesa o todas
+ * POST ?action=swap      → { a, b } intercambia dos mesas de lugar (con su sección, capacidad e invitados)
  * PATCH                  → { id, name?, capacity?, category?, side? } edita una mesa y su sección
  *
  * La capacidad se valida aquí para dar mensajes claros y se vuelve a garantizar
@@ -55,11 +56,15 @@ const localStore = {
   async applyPlan(state, plan) { writeLocalState(T.applyPlan(state, plan)); },
   async release(state, tableId) { writeLocalState(T.releaseTable(state, tableId)); },
   async updateTable(state, id, patch) { writeLocalState(T.applyTablePatch(state, id, patch)); },
+  async swap(state, a, b) { writeLocalState(T.applyTableSwap(state, a, b)); },
 };
 
 /* ─── Supabase ─── */
 function translateDbError(error) {
   const message = String(error?.message || '');
+  if (['42883', 'PGRST202'].includes(error?.code) && /swap_tables/.test(message)) {
+    return new T.TableError('MIGRATION', 'Primero ejecuta la migración 017_swap_tables.sql en Supabase para poder intercambiar mesas.');
+  }
   if (['42P01', '42883', 'PGRST202', 'PGRST205'].includes(error?.code)) {
     return new T.TableError('MIGRATION', 'Primero ejecuta la migración 011_wedding_tables.sql en Supabase para activar las mesas.');
   }
@@ -113,6 +118,9 @@ const supabaseStore = {
   async updateTable(_state, id, patch) {
     const data = await dbCall(supabase.from('wedding_tables').update(patch).eq('id', id).select('id'));
     if (!data?.length) throw new T.TableError('NOT_FOUND', 'La mesa no existe.');
+  },
+  async swap(_state, a, b) {
+    await dbCall(supabase.rpc('swap_tables', { p_a: a, p_b: b }));
   },
 };
 
@@ -249,6 +257,17 @@ async function doReset(body) {
   return { reset: true };
 }
 
+async function doSwap(body) {
+  const a = parseTableId(body.a);
+  const b = parseTableId(body.b);
+  if (a === null || b === null || a === b) throw new T.TableError('INVALID', 'Elige dos mesas distintas.');
+  const current = await loadAll();
+  const known = new Set(current.state.tables.map((row) => row.id));
+  if (!known.has(a) || !known.has(b)) throw new T.TableError('NOT_FOUND', 'La mesa no existe.');
+  await store().swap(current.state, a, b);
+  return { swapped: [a, b] };
+}
+
 async function doPatch(body) {
   const id = parseTableId(body.id);
   if (id === null) throw new T.TableError('INVALID', 'Mesa no válida.');
@@ -286,6 +305,7 @@ module.exports = async function handler(req, res) {
         case 'move': result = await doMove(body); break;
         case 'auto': result = await doAuto(); break;
         case 'reset': result = await doReset(body); break;
+        case 'swap': result = await doSwap(body); break;
         default: res.status(400).json({ error: 'Acción no reconocida' }); return;
       }
     } else if (req.method === 'PATCH') {

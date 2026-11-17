@@ -24,7 +24,7 @@ Frontend estático + funciones serverless en `api/` (Vercel) + Supabase como bas
 | `ADMIN_SESSION_SECRET` | recomendada | ≥ 32 caracteres; si falta se usa la service key |
 
 ## Base de datos
-Ejecuta en el SQL Editor de Supabase, en orden, los archivos de `migrations/` (001 → 016).
+Ejecuta en el SQL Editor de Supabase, en orden, los archivos de `migrations/` (001 → 017).
 La 010 corrige la separación de grupos con personas eliminadas, protege las
 confirmaciones de quienes ya entraron y sincroniza el teléfono. La 011 crea el módulo de mesas y la 012 añade las secciones de las mesas y la marca de familia cercana
 (ejecútala antes de desplegar esa versión) la 013 añade el parentesco de los familiares, la 014 el cortejo y la 015 los parentescos editables y los novios del cortejo
@@ -57,6 +57,7 @@ queda fuera de la suya. Iglesia, participantes y amigos no ocupan mesas de famil
 La lista de "Sin mesa" separa a los invitados por categoría, en el mismo orden que las mesas (familia cercana, familiares,
 participantes, iglesia, amigos; cada grupo bajo una sola sección), con botones para ver solo una categoría.
 Se mueve a un invitado tocándolo y luego tocando la mesa, o arrastrándolo; por defecto se mueve con su grupo.
+Para **cambiar el orden de las mesas**, arrastra una mesa (desde su título) sobre otra y se intercambian de lugar —también con "Cambiar de lugar con" en el lápiz de la mesa—. La mesa se lleva su sección, su capacidad y sus invitados; el nombre "Mesa N" toma el número del lugar nuevo y un nombre propio ("Mesa de honor") viaja con ella. Requiere la migración 017.
 
 ## Cortejo y participantes
 La página **Cortejo** organiza los papeles del día de la boda. Cada papel tiene su tarjeta con las personas que

@@ -172,3 +172,52 @@ test('SQL: 011 es repetible y conserva las asignaciones', async () => {
   assert.equal(await seated(9), 3);
   assert.equal((await db.query('select count(*)::int as n from public.wedding_tables')).rows[0].n, 12);
 });
+
+test('SQL: intercambiar dos mesas lleva su sección, capacidad e invitados', async () => {
+  const mine = await people(3, 'Novio');
+  const other = await people(2, 'Novia');
+  await move(mine, 5);
+  await move(other, 2);
+  await db.query("update public.wedding_tables set capacity = 12 where id = 5");
+  await db.query("update public.wedding_tables set name = 'Mesa de honor' where id = 2");
+  await db.query('select public.swap_tables(5, 2)');
+  const { rows } = await db.query('select id, name, capacity, is_main, category, side from public.wedding_tables where id in (2, 5) order by id');
+  assert.deepEqual(rows, [
+    { id: 2, name: 'Mesa 2', capacity: 12, is_main: true, category: 'familiares', side: 'novio' },
+    { id: 5, name: 'Mesa de honor', capacity: 10, is_main: true, category: 'familia_cercana', side: 'novio' },
+  ]);
+  assert.equal(await seated(2), 3);
+  assert.equal(await seated(5), 2);
+  const at = async (table) => (await db.query('select guest_id from public.table_assignments where table_id = $1 order by guest_id', [table])).rows.map((r) => Number(r.guest_id));
+  assert.deepEqual(await at(2), mine.map(Number)); assert.deepEqual(await at(5), other.map(Number));
+  // Repetirlo lo deja como estaba.
+  await db.query('select public.swap_tables(2, 5)');
+  assert.deepEqual(await at(5), mine.map(Number));
+  assert.equal((await db.query('select name from public.wedding_tables where id = 5')).rows[0].name, 'Mesa 5');
+});
+
+test('SQL: intercambiar con una mesa llena o de distinta capacidad respeta los cupos', async () => {
+  const ten = await people(10, 'Lleno');
+  await move(ten, 3);
+  await db.query('update public.wedding_tables set capacity = 10 where id = 3');
+  await db.query('update public.wedding_tables set capacity = 4 where id = 12');
+  await db.query('select public.swap_tables(3, 12)');
+  assert.equal(await seated(12), 10);
+  assert.equal((await db.query('select capacity from public.wedding_tables where id = 12')).rows[0].capacity, 10);
+  assert.equal((await db.query('select capacity from public.wedding_tables where id = 3')).rows[0].capacity, 4);
+  await assert.rejects(move(await people(1, 'Extra'), 12), { code: '23514' }, 'la mesa llena sigue llena');
+});
+
+test('SQL: intercambiar mesas valida y no deja cambios a medias; anon no puede', async () => {
+  const [a] = await people(1);
+  await move([a], 1);
+  await assert.rejects(db.query('select public.swap_tables(1, 1)'), { code: '22023' });
+  await assert.rejects(db.query('select public.swap_tables(null, 2)'), { code: '22023' });
+  await assert.rejects(db.query('select public.swap_tables(1, 99)'), { code: 'P0002' });
+  assert.equal(await seated(1), 1, 'no cambió nada');
+  assert.equal((await db.query('select name from public.wedding_tables where id = 1')).rows[0].name, 'Mesa 1');
+  for (const role of ['anon', 'authenticated']) {
+    await db.exec(`reset role; set role ${role};`);
+    await assert.rejects(db.query('select public.swap_tables(1, 2)'), { code: '42501' });
+  }
+});

@@ -267,3 +267,34 @@ test('madre, padre y hermanos: se guardan, implican familia cercana y se sientan
   r = await put({ categoria: 'amigos', parentesco: 'madre', cercana: true });
   assert.deepEqual([r.body.parentesco, r.body.cercana], [null, false], 'al dejar de ser familiar se limpia el parentesco');
 });
+
+test('intercambiar dos mesas mueve su sección y sus invitados', async () => {
+  reset();
+  const cookie = await login();
+  const a = await addGuest(cookie, 'Tio Novio Uno', 'familiares', 'novio');
+  const b = await addGuest(cookie, 'Tia Novia Dos', 'familiares', 'novia');
+  await call(cookie, { method: 'POST', query: '?action=move', body: { guest_ids: [a.id], table_id: 5 } });
+  await call(cookie, { method: 'POST', query: '?action=move', body: { guest_ids: [b.id], table_id: 2 } });
+  const res = await call(cookie, { method: 'POST', query: '?action=swap', body: { a: 5, b: 2 } });
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+  assert.deepEqual(res.body.result.swapped, [5, 2]);
+  assert.equal(tableOf(res.body, a.id), 2);
+  assert.equal(tableOf(res.body, b.id), 5);
+  const table = (id) => res.body.tables.find((row) => row.id === id);
+  assert.equal(table(2).label, 'Familiares del novio'); assert.equal(table(2).name, 'Mesa 2'); assert.deepEqual(table(2).guests, [a.id]);
+  assert.equal(table(5).label, 'Familia cercana del novio'); assert.equal(table(5).name, 'Mesa 5'); assert.deepEqual(table(5).guests, [b.id]);
+  assert.equal(table(2).is_main && table(5).is_main, true);
+  // Persiste: otra lectura ve lo mismo.
+  const again = await call(cookie);
+  assert.equal(tableOf(again.body, a.id), 2);
+});
+
+test('intercambiar mesas valida los datos y exige sesión', async () => {
+  reset();
+  const cookie = await login();
+  assert.equal((await call(null, { method: 'POST', query: '?action=swap', body: { a: 1, b: 2 } })).statusCode, 401);
+  for (const body of [{}, { a: 1 }, { a: 1, b: 1 }, { a: 'x', b: 2 }, { a: -1, b: 2 }]) {
+    assert.equal((await call(cookie, { method: 'POST', query: '?action=swap', body })).statusCode, 400, JSON.stringify(body));
+  }
+  assert.equal((await call(cookie, { method: 'POST', query: '?action=swap', body: { a: 1, b: 99 } })).statusCode, 404);
+});

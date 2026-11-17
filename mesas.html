@@ -54,7 +54,13 @@ button,input,select{font:inherit}
 .table-card.main{border-color:#ad8b3670;background:linear-gradient(#fffdf6,#fff 55%)}
 .table-card.full .meter>i{background:var(--red)}
 .table-card.targetable{cursor:pointer}.table-card.targetable:hover{border-color:var(--green);box-shadow:0 0 0 3px #52765322}
-.t-head{display:flex;align-items:flex-start;justify-content:space-between;gap:.4rem}
+.t-head{display:flex;align-items:flex-start;justify-content:space-between;gap:.4rem;cursor:grab}
+.t-head:active{cursor:grabbing}
+.grip{display:inline-block;color:#b3a898;margin-right:.35rem;font-size:1rem;line-height:1;letter-spacing:-.15em;vertical-align:.08em;user-select:none}
+.table-card.dragging-table{opacity:.5;outline:3px dashed var(--gold);outline-offset:3px}
+.table-card.drop-swap{outline:3px solid var(--gold);outline-offset:3px;background:var(--gold-light)}
+.swap-row{display:grid;grid-template-columns:1fr auto;gap:.5rem;align-items:end}
+.swap-row label{margin:0}
 .t-head h4{font:600 1.35rem 'Poppins',system-ui,sans-serif;margin:0;line-height:1.1}
 .badge.plain{background:var(--green-light);color:var(--green-dark)}
 .badge{display:inline-block;font-size:.75rem;font-weight:600;padding:.15rem .5rem;border-radius:999px;background:var(--gold-light);color:#7a5f10;margin-top:.25rem}
@@ -148,6 +154,7 @@ body.busy .board{opacity:.7;pointer-events:none}
     <label>Nombre de la mesa<input type="text" id="edit-name" maxlength="40" required></label>
     <label>Lugares<input type="number" id="edit-capacity" min="1" max="30" required></label>
     <label>Sección de la mesa<select id="edit-section"></select></label>
+    <div class="swap-row"><label>Cambiar de lugar con<select id="edit-swap"></select></label><button class="btn" id="edit-swap-btn" type="button">Intercambiar</button></div>
     <p class="dialog-error" id="edit-error" role="alert"></p>
     <div class="modal-actions"><button class="btn warn" id="edit-clear" type="button">Vaciar esta mesa</button><div><button class="btn" id="edit-cancel" type="button">Cancelar</button><button class="btn primary" id="edit-save" type="submit">Guardar</button></div></div>
   </form>
@@ -169,7 +176,7 @@ const SECTIONS = [
 ];
 let state = { tables: [], people: [], summary: {}, warnings: [] };
 let poolFilter = 'all';
-let selectedId = null, busy = false, dragging = false, planWarnings = [], editingTable = null, toastTimer;
+let selectedId = null, draggingTable = null, busy = false, dragging = false, planWarnings = [], editingTable = null, toastTimer;
 
 async function api(url, options = {}) {
   const response = await fetch(url, { cache: 'no-store', credentials: 'same-origin', ...options,
@@ -278,7 +285,7 @@ function render() {
     const full = seated.length >= table.capacity;
     const here = holding && personById(selectedId)?.table_id === table.id;
     return `<article class="table-card${table.is_main ? ' main' : ''}${full ? ' full' : ''}${holding && !here ? ' targetable' : ''}" data-drop="${table.id}" data-table="${table.id}">
-      <div class="t-head"><div><h4>${esc(table.name)}</h4><span class="badge${table.is_main ? '' : ' plain'}">${esc(table.label || 'Cualquier invitado')}</span></div>
+      <div class="t-head" draggable="true" data-table-drag="${table.id}" title="Arrastra esta mesa sobre otra para intercambiarlas de lugar"><div><h4><span class="grip" aria-hidden="true">⋮⋮</span>${esc(table.name)}</h4><span class="badge${table.is_main ? '' : ' plain'}">${esc(table.label || 'Cualquier invitado')}</span></div>
         <button class="icon-btn" type="button" data-edit="${table.id}" aria-label="Editar ${esc(table.name)}"><svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button></div>
       <div class="meter" aria-hidden="true"><i style="width:${pct}%"></i></div>
       <div class="count"><b>${seated.length}</b> / ${table.capacity} lugares${full ? ' · completa' : ` · ${table.capacity - seated.length} libre${table.capacity - seated.length === 1 ? '' : 's'}`}</div>
@@ -357,8 +364,26 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') { if ($('edit-modal').classList.contains('show')) closeEdit(); else if (selectedId != null) { selectedId = null; render(); } }
 });
 
+function swapTables(a, b) {
+  const first = tableById(a), second = tableById(b);
+  if (!first || !second || a === b) return;
+  return run(async () => {
+    setState(await api('/api/tables?action=swap', { method: 'POST', body: JSON.stringify({ a, b }) }));
+    planWarnings = []; selectedId = null;
+    notify(`${first.name} y ${second.name} cambiaron de lugar.`);
+  });
+}
+
 document.addEventListener('dragstart', (event) => {
   const guest = event.target.closest?.('[data-guest]');
+  const head = !guest && event.target.closest?.('[data-table-drag]');
+  if (head) {
+    dragging = true; draggingTable = Number(head.dataset.tableDrag); selectedId = null;
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', `mesa:${draggingTable}`);
+    head.closest('.table-card')?.classList.add('dragging-table');
+    return;
+  }
   if (!guest) return;
   dragging = true; selectedId = Number(guest.dataset.guest);
   event.dataTransfer.effectAllowed = 'move';
@@ -372,12 +397,21 @@ document.addEventListener('dragstart', (event) => {
   });
 });
 document.addEventListener('dragend', () => {
-  dragging = false;
-  document.querySelectorAll('.drop-over,.drop-full').forEach((el) => el.classList.remove('drop-over', 'drop-full'));
+  dragging = false; draggingTable = null;
+  document.querySelectorAll('.drop-over,.drop-full,.drop-swap,.dragging-table').forEach((el) => el.classList.remove('drop-over', 'drop-full', 'drop-swap', 'dragging-table'));
   if (!busy) render();
 });
 document.addEventListener('dragover', (event) => {
   const zone = event.target.closest?.('[data-drop]');
+  if (draggingTable != null) {
+    // Arrastrando una mesa: solo otra mesa es destino válido.
+    document.querySelectorAll('.drop-swap').forEach((el) => { if (el !== zone) el.classList.remove('drop-swap'); });
+    if (!zone || zone.dataset.drop === 'none' || Number(zone.dataset.drop) === draggingTable) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    zone.classList.add('drop-swap');
+    return;
+  }
   if (!zone) return;
   event.preventDefault();
   event.dataTransfer.dropEffect = 'move';
@@ -389,6 +423,15 @@ document.addEventListener('dragover', (event) => {
 });
 document.addEventListener('drop', (event) => {
   const zone = event.target.closest?.('[data-drop]');
+  if (draggingTable != null) {
+    const from = draggingTable;
+    draggingTable = null; dragging = false;
+    document.querySelectorAll('.drop-swap,.dragging-table').forEach((el) => el.classList.remove('drop-swap', 'dragging-table'));
+    if (!zone || zone.dataset.drop === 'none') return;
+    event.preventDefault();
+    swapTables(from, Number(zone.dataset.drop));
+    return;
+  }
   if (!zone) return;
   event.preventDefault();
   dragging = false;
@@ -422,6 +465,8 @@ function openEdit(id) {
   $('edit-name').value = table.name; $('edit-capacity').value = table.capacity;
   $('edit-section').innerHTML = SECTIONS.map(([value, label]) => `<option value="${esc(value)}">${esc(label)}</option>`).join('');
   $('edit-section').value = `${table.category || ''}|${table.side || ''}`;
+  $('edit-swap').innerHTML = state.tables.filter((other) => other.id !== id)
+    .map((other) => `<option value="${other.id}">${esc(other.name)} · ${esc(other.label || 'Cualquier invitado')}</option>`).join('');
   $('edit-error').textContent = '';
   $('edit-modal').classList.add('show');
   $('edit-name').focus();
@@ -441,6 +486,12 @@ $('edit-form').addEventListener('submit', (event) => {
       closeEdit(); render(); notify('Mesa actualizada.');
     } catch (error) { $('edit-error').textContent = error.message; }
   });
+});
+$('edit-swap-btn').addEventListener('click', () => {
+  const from = editingTable, to = Number($('edit-swap').value);
+  if (from == null || !to) return;
+  closeEdit();
+  swapTables(from, to);
 });
 $('edit-clear').addEventListener('click', () => {
   const id = editingTable, table = tableById(id);
