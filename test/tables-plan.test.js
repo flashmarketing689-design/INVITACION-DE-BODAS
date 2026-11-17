@@ -274,3 +274,23 @@ test('los parentescos propios se etiquetan por lado y se ordenan según la lista
   const quitado = tables.buildPeople(invitations, [], new Map([[1, { parentesco: 'madre', cercana: true }]]), kinships);
   assert.deepEqual([quitado[0].parentesco, quitado[0].cercana, quitado[0].parentesco_label], [null, true, null]);
 });
+
+test('intercambiar mesas: la sección, la capacidad y los invitados viajan con la mesa', () => {
+  const state = { tables: tables.defaultTables(), assignments: [] };
+  state.tables[4].capacity = 12;                // Mesa 5 (familiares del novio)
+  state.tables[1].name = 'Mesa de honor';       // Mesa 2 con nombre propio
+  state.assignments = [{ guest_id: 1, table_id: 2 }, { guest_id: 2, table_id: 5 }, { guest_id: 3, table_id: 5 }, { guest_id: 4, table_id: 9 }];
+  const next = tables.applyTableSwap(state, 5, 2);
+  const at = (id) => next.tables.find((table) => table.id === id);
+  assert.equal(at(2).name, 'Mesa 2', 'el nombre "Mesa N" toma el número del lugar nuevo');
+  assert.equal(at(2).category, 'familiares'); assert.equal(at(2).side, 'novio'); assert.equal(at(2).capacity, 12);
+  assert.equal(at(5).name, 'Mesa de honor', 'un nombre propio viaja con la mesa');
+  assert.equal(at(5).category, 'familia_cercana'); assert.equal(at(5).side, 'novio'); assert.equal(at(5).capacity, 10);
+  const seated = (id) => next.assignments.filter((row) => row.table_id === id).map((row) => row.guest_id).sort();
+  assert.deepEqual(seated(2), [2, 3]); assert.deepEqual(seated(5), [1]); assert.deepEqual(seated(9), [4]);
+  assert.deepEqual(state.tables, tables.defaultTables().map((table, index) => (index === 4 ? { ...table, capacity: 12 } : index === 1 ? { ...table, name: 'Mesa de honor' } : table)), 'no modifica el estado original');
+  // Intercambiar dos veces deja todo como estaba.
+  assert.deepEqual(tables.applyTableSwap(next, 2, 5).tables, state.tables);
+  assert.throws(() => tables.applyTableSwap(state, 3, 3), { code: 'INVALID' });
+  assert.throws(() => tables.applyTableSwap(state, 3, 99), { code: 'NOT_FOUND' });
+});
